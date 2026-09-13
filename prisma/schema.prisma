@@ -1,0 +1,487 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id            String   @id @default(uuid())
+  username      String   @unique
+  email         String   @unique
+  passwordHash  String
+  fullName      String
+  role          String   @default("ADMIN") // RoleType: ADMIN, CONSULTANT, RECEPTIONIST, LAB_STAFF, PHARMACY_STAFF, ULTRASOUND_STAFF
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  consultantProfile Consultant?
+  auditLogs         AuditLog[]
+  cashTransactions  CashTransaction[]
+}
+
+model Consultant {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialty       String
+  department      String
+  qualification   String
+  roomNumber      String
+  consultationFee Decimal  @default(0.0)
+  isAvailable     Boolean  @default(true)
+
+  visits              PatientVisit[]
+  consultations       Consultation[]
+  prescriptions       Prescription[]
+  labOrders           LabOrder[]
+  ultrasoundOrders    UltrasoundOrder[]
+  labRevisions        LabRevisionRequest[]
+  ultrasoundRevisions UltrasoundRevisionRequest[]
+}
+
+model Patient {
+  id                String   @id @default(uuid())
+  mrNumber          String   @unique
+  fullName          String
+  fatherHusbandName String?
+  gender            String
+  dob               DateTime?
+  age               Int
+  phone             String
+  address           String?
+  cnic              String?  @unique
+  emergencyContact  String?
+  bloodGroup        String?
+  notes             String?
+  createdBy         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  visits           PatientVisit[]
+  consultations    Consultation[]
+  prescriptions    Prescription[]
+  labOrders        LabOrder[]
+  ultrasoundOrders UltrasoundOrder[]
+  cashTransactions CashTransaction[]
+  otRecords        OTRecord[]
+  gyneRecords      GyneRecord[]
+}
+
+model PatientVisit {
+  id              String   @id @default(uuid())
+  visitNumber     String   @unique
+  patientId       String
+  patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultantId    String
+  consultant      Consultant @relation(fields: [consultantId], references: [id])
+  visitDate       DateTime @default(now())
+  arrivalTime     DateTime @default(now())
+  department      String
+  visitType       String   @default("OPD")
+  reasonForVisit  String?
+  consultationFee Decimal  @default(0.0)
+  amountReceived  Decimal  @default(0.0)
+  paymentMethod   String   @default("CASH")
+  receptionistId  String
+  status          String   @default("REGISTERED") // REGISTERED, WAITING, WITH_CONSULTANT, LAB_REQUESTED, PHARMACY, COMPLETED
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  consultations    Consultation[]
+  prescriptions    Prescription[]
+  labOrders        LabOrder[]
+  ultrasoundOrders UltrasoundOrder[]
+  cashTransactions CashTransaction[]
+  otRecords        OTRecord[]
+  gyneRecords      GyneRecord[]
+}
+
+model Consultation {
+  id             String       @id @default(uuid())
+  visitId        String
+  visit          PatientVisit @relation(fields: [visitId], references: [id])
+  patientId      String
+  patient        Patient      @relation(fields: [patientId], references: [id])
+  consultantId   String
+  consultant     Consultant   @relation(fields: [consultantId], references: [id])
+  chiefComplaint String
+  symptoms       String?
+  diagnosis      String
+  bpSystolic     Int?
+  bpDiastolic    Int?
+  temperature    Float?
+  pulse          Int?
+  weight         Float?
+  clinicalNotes  String?
+  advice         String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  prescriptions Prescription[]
+}
+
+model Prescription {
+  id               String       @id @default(uuid())
+  patientId        String
+  patient          Patient      @relation(fields: [patientId], references: [id])
+  visitId          String
+  visit            PatientVisit @relation(fields: [visitId], references: [id])
+  consultantId     String
+  consultant       Consultant   @relation(fields: [consultantId], references: [id])
+  consultationId   String?
+  consultation     Consultation? @relation(fields: [consultationId], references: [id])
+  diagnosis        String
+  prescriptionDate DateTime     @default(now())
+  notes            String?
+  isDispensed      Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  items      PrescriptionItem[]
+  dispensing PharmacyDispensing[]
+}
+
+model PrescriptionItem {
+  id             String       @id @default(uuid())
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  medicineName   String
+  dosage         String
+  frequency      String
+  duration       String
+  route          String?
+  instructions   String?
+
+  dispensingItems PharmacyDispensingItem[]
+}
+
+model LabOrder {
+  id            String   @id @default(uuid())
+  orderNumber   String   @unique
+  patientId     String
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  visitId       String
+  visit         PatientVisit @relation(fields: [visitId], references: [id])
+  consultantId  String
+  consultant    Consultant @relation(fields: [consultantId], references: [id])
+  testCategory  String
+  clinicalNotes String?
+  priority      String   @default("NORMAL")
+  status        String   @default("ORDERED") // ORDERED, SAMPLE_COLLECTED, PROCESSING, REPORT_PREPARED, SUBMITTED_TO_CONSULTANT, REVISION_REQUESTED, ACCEPTED
+  totalFee      Decimal  @default(0.0)
+  requestDate   DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items     LabOrderItem[]
+  reports   LabReport[]
+  revisions LabRevisionRequest[]
+}
+
+model LabOrderItem {
+  id         String   @id @default(uuid())
+  labOrderId String
+  labOrder   LabOrder @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+  testName   String
+  testCode   String
+  unitPrice  Decimal  @default(0.0)
+}
+
+model LabReport {
+  id             String    @id @default(uuid())
+  labOrderId     String    @unique
+  labOrder       LabOrder  @relation(fields: [labOrderId], references: [id])
+  currentVersion Int       @default(1)
+  isAccepted     Boolean   @default(false)
+  acceptedAt     DateTime?
+  acceptedBy     String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  versions  LabReportVersion[]
+  revisions LabRevisionRequest[]
+}
+
+model LabReportVersion {
+  id               String    @id @default(uuid())
+  labReportId      String
+  labReport        LabReport @relation(fields: [labReportId], references: [id], onDelete: Cascade)
+  versionNumber    Int
+  structuredResult String    // JSON string containing findings, reference ranges, abnormal flags
+  summary          String?
+  performedBy      String
+  pdfUrl           String?
+  createdAt        DateTime  @default(now())
+}
+
+model LabRevisionRequest {
+  id            String     @id @default(uuid())
+  labOrderId    String
+  labOrder      LabOrder   @relation(fields: [labOrderId], references: [id])
+  labReportId   String
+  labReport     LabReport  @relation(fields: [labReportId], references: [id])
+  consultantId  String
+  consultant    Consultant @relation(fields: [consultantId], references: [id])
+  versionTarget Int
+  reason        String
+  comment       String
+  status        String     @default("PENDING") // PENDING, RESOLVED
+  createdAt     DateTime   @default(now())
+  resolvedAt    DateTime?
+}
+
+model UltrasoundOrder {
+  id                 String   @id @default(uuid())
+  orderNumber        String   @unique
+  patientId          String
+  patient            Patient  @relation(fields: [patientId], references: [id])
+  visitId            String
+  visit              PatientVisit @relation(fields: [visitId], references: [id])
+  consultantId       String
+  consultant         Consultant @relation(fields: [consultantId], references: [id])
+  requestedExam      String
+  clinicalIndication String?
+  priority           String   @default("NORMAL")
+  status             String   @default("ORDERED") // ORDERED, PROCESSING, SUBMITTED_TO_CONSULTANT, REVISION_REQUESTED, ACCEPTED
+  totalFee           Decimal  @default(0.0)
+  requestDate        DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  reports   UltrasoundReport[]
+  revisions UltrasoundRevisionRequest[]
+}
+
+model UltrasoundReport {
+  id                String          @id @default(uuid())
+  ultrasoundOrderId String          @unique
+  ultrasoundOrder   UltrasoundOrder @relation(fields: [ultrasoundOrderId], references: [id])
+  currentVersion    Int             @default(1)
+  isAccepted        Boolean         @default(false)
+  acceptedAt        DateTime?
+  acceptedBy        String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  versions  UltrasoundReportVersion[]
+  revisions UltrasoundRevisionRequest[]
+}
+
+model UltrasoundReportVersion {
+  id                 String           @id @default(uuid())
+  ultrasoundReportId String
+  ultrasoundReport   UltrasoundReport @relation(fields: [ultrasoundReportId], references: [id], onDelete: Cascade)
+  versionNumber      Int
+  findings           String
+  impression         String
+  sonographerNotes   String?
+  imageUrl           String?
+  pdfUrl             String?
+  performedBy        String
+  createdAt          DateTime         @default(now())
+}
+
+model UltrasoundRevisionRequest {
+  id                 String           @id @default(uuid())
+  ultrasoundOrderId  String
+  ultrasoundOrder    UltrasoundOrder  @relation(fields: [ultrasoundOrderId], references: [id])
+  ultrasoundReportId String
+  ultrasoundReport   UltrasoundReport @relation(fields: [ultrasoundReportId], references: [id])
+  consultantId       String
+  consultant         Consultant       @relation(fields: [consultantId], references: [id])
+  versionTarget      Int
+  reason             String
+  comment            String
+  status             String           @default("PENDING")
+  createdAt          DateTime         @default(now())
+  resolvedAt         DateTime?
+}
+
+model Medicine {
+  id                String   @id @default(uuid())
+  genericName       String
+  brandName         String
+  category          String
+  manufacturer      String
+  purchasePrice     Decimal  @default(0.0)
+  salePrice         Decimal  @default(0.0)
+  availableQuantity Int      @default(0)
+  reorderLevel      Int      @default(10)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  batches   MedicineBatch[]
+  movements InventoryTransaction[]
+}
+
+model MedicineBatch {
+  id           String   @id @default(uuid())
+  medicineId   String
+  medicine     Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  batchNumber  String
+  purchaseDate DateTime @default(now())
+  expiryDate   DateTime
+  quantity     Int
+  costPrice    Decimal  @default(0.0)
+  supplier     String?
+  createdAt    DateTime @default(now())
+
+  dispensingItems PharmacyDispensingItem[]
+  movements       InventoryTransaction[]
+}
+
+model InventoryTransaction {
+  id           String         @id @default(uuid())
+  medicineId   String
+  medicine     Medicine       @relation(fields: [medicineId], references: [id])
+  batchId      String?
+  batch        MedicineBatch? @relation(fields: [batchId], references: [id])
+  movementType String         // PURCHASE, DISPENSE, RETURN, ADJUSTMENT, DAMAGED, EXPIRED
+  quantity     Int
+  unitCost     Decimal        @default(0.0)
+  referenceNo  String?
+  notes        String?
+  performedBy  String
+  createdAt    DateTime       @default(now())
+}
+
+model PharmacyDispensing {
+  id             String   @id @default(uuid())
+  dispensingNo   String   @unique
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id])
+  patientName    String
+  totalAmount    Decimal  @default(0.0)
+  pharmacistId   String
+  dispensedAt    DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  items PharmacyDispensingItem[]
+}
+
+model PharmacyDispensingItem {
+  id                   String             @id @default(uuid())
+  pharmacyDispensingId String
+  pharmacyDispensing   PharmacyDispensing @relation(fields: [pharmacyDispensingId], references: [id], onDelete: Cascade)
+  prescriptionItemId   String
+  prescriptionItem     PrescriptionItem   @relation(fields: [prescriptionItemId], references: [id])
+  batchId              String
+  batch                MedicineBatch      @relation(fields: [batchId], references: [id])
+  medicineName         String
+  quantity             Int
+  unitPrice            Decimal            @default(0.0)
+  totalPrice           Decimal            @default(0.0)
+}
+
+model OTRecord {
+  id              String       @id @default(uuid())
+  otNumber        String       @unique
+  patientId       String
+  patient         Patient      @relation(fields: [patientId], references: [id])
+  visitId         String
+  visit           PatientVisit @relation(fields: [visitId], references: [id])
+  surgeonName     String
+  procedureName   String
+  diagnosis       String
+  otDate          DateTime
+  scheduledTime   String
+  actualStartTime String?
+  actualEndTime   String?
+  otRoom          String
+  anesthesiaType  String
+  anesthetistName String
+  preOpNotes      String?
+  procedureNotes  String?
+  postOpNotes     String?
+  status          String       @default("SCHEDULED") // SCHEDULED, ADMITTED, PRE_OP, IN_OT, POST_OP, RECOVERY, DISCHARGED
+  totalFee        Decimal      @default(0.0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model GyneRecord {
+  id                 String       @id @default(uuid())
+  gyneNumber         String       @unique
+  patientId          String
+  patient            Patient      @relation(fields: [patientId], references: [id])
+  visitId            String
+  visit              PatientVisit @relation(fields: [visitId], references: [id])
+  consultantName     String
+  admissionDate      DateTime     @default(now())
+  reasonForAdmission String
+  diagnosis          String
+  bedNumber          String
+  wardName           String
+  treatmentPlan      String?
+  dischargeDate      DateTime?
+  dischargeNotes     String?
+  status             String       @default("ADMITTED")
+  totalFee           Decimal      @default(0.0)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+model CashTransaction {
+  id                String        @id @default(uuid())
+  transactionNumber String        @unique
+  transactionType   String        // INCOME, EXPENSE, REFUND, ADJUSTMENT, REVERSAL
+  category          String
+  department        String
+  amount            Decimal       @default(0.0)
+  paymentMethod     String        @default("CASH")
+  description       String
+  referenceNumber   String?
+  patientId         String?
+  patient           Patient?      @relation(fields: [patientId], references: [id])
+  visitId           String?
+  visit             PatientVisit? @relation(fields: [visitId], references: [id])
+  createdById       String
+  createdBy         User          @relation(fields: [createdById], references: [id])
+  transactionDate   DateTime      @default(now())
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+model DailyCashClosing {
+  id              String   @id @default(uuid())
+  closingDate     DateTime @unique
+  openingBalance  Decimal  @default(0.0)
+  totalIncome     Decimal  @default(0.0)
+  totalExpense    Decimal  @default(0.0)
+  expectedClosing Decimal  @default(0.0)
+  actualCash      Decimal  @default(0.0)
+  difference      Decimal  @default(0.0)
+  closedBy        String
+  notes           String?
+  isClosed        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityName String
+  entityId   String
+  ipAddress  String?
+  oldValues  String?  // JSON string
+  newValues  String?  // JSON string
+  createdAt  DateTime @default(now())
+}
+
+model SystemHealthRecord {
+  id               String   @id @default(uuid())
+  dbStatus         String   @default("HEALTHY")
+  dbConnectionPool Int      @default(10)
+  pitrStatus       String   @default("ACTIVE")
+  lastBackupTime   DateTime @default(now())
+  redisStatus      String   @default("CONNECTED")
+  storageUsageMb   Float    @default(256.4)
+  createdAt        DateTime @default(now())
+}
