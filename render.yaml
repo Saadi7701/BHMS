@@ -1,0 +1,30 @@
+services:
+  # Web API Service (Horizontally Scalable Stateless App)
+  - type: web
+    name: bilal-hospital-api
+    env: node
+    buildCommand: npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_PRODUCTION_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+
+  # Dedicated Out-of-Band Scheduled Backup Worker Job
+  - type: cron
+    name: bilal-hospital-backup-job
+    env: node
+    schedule: "0 2 * * *" # Daily at 02:00 AM UTC
+    buildCommand: npm run build
+    startCommand: npm run backup:run
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_PRODUCTION_URI
+        sync: false
+      - key: MONGODB_BACKUP_URI
+        sync: false

@@ -1,0 +1,105 @@
+import "dotenv/config";
+import mongoose from "mongoose";
+
+const MONGODB_PRODUCTION_URI = process.env.MONGODB_PRODUCTION_URI;
+
+if (!MONGODB_PRODUCTION_URI) {
+  console.warn(
+    "[MongoDB Alert] MONGODB_PRODUCTION_URI environment variable is not defined. Falling back to default local connection string."
+  );
+}
+
+const DEFAULT_URI = "mongodb://127.0.0.1:27017/bilal_hospital_prod";
+const MONGODB_URI = MONGODB_PRODUCTION_URI || DEFAULT_URI;
+
+/**
+ * Global cache interface to maintain a single Mongoose connection across hot reloads.
+ */
+interface MongooseCache {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
+}
+
+declare global {
+  // eslint-disable-next-line no-var
+  var mongooseCache: MongooseCache | undefined;
+}
+
+let cached: MongooseCache = global.mongooseCache || { conn: null, promise: null };
+
+if (!global.mongooseCache) {
+  global.mongooseCache = cached;
+}
+
+/**
+ * Production-ready Mongoose connection options.
+ */
+export const MONGOOSE_PRODUCTION_OPTIONS: mongoose.ConnectOptions = {
+  maxPoolSize: 50,              // Maintain up to 50 socket connections for high concurrency
+  minPoolSize: 10,              // Keep 10 warm connections ready
+  serverSelectionTimeoutMS: 5000, // Timeout after 5s if MongoDB server is unreachable
+  socketTimeoutMS: 45000,       // Close sockets after 45s of inactivity
+  connectTimeoutMS: 10000,      // Timeout for initial connection establishment
+  retryWrites: true,            // Auto retry write operations on transient network errors
+  retryReads: true,             // Auto retry read operations
+  autoIndex: process.env.NODE_ENV !== "production", // Enable auto-indexing in dev only
+};
+
+/**
+ * Connect to the MongoDB Production Cluster.
+ */
+export async function connectToProductionDatabase(): Promise<typeof mongoose> {
+  if (cached.conn) {
+    return cached.conn;
+  }
+
+  if (!cached.promise) {
+    console.log("[MongoDB] Initializing Production MongoDB Cluster Connection...");
+    
+    cached.promise = mongoose
+      .connect(MONGODB_URI, MONGOOSE_PRODUCTION_OPTIONS)
+      .then((mongooseInstance) => {
+        console.log("[MongoDB] Successfully connected to Production MongoDB Cluster.");
+        return mongooseInstance;
+      })
+      .catch((error) => {
+        console.error("[MongoDB Error] Failed to connect to Production MongoDB Cluster:", error.message);
+        cached.promise = null;
+        throw error;
+      });
+  }
+
+  try {
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
+  }
+
+  return cached.conn;
+}
+
+/**
+ * Graceful shutdown hook to safely close connection pools on application termination.
+ */
+export async function disconnectProductionDatabase(): Promise<void> {
+  if (cached.conn) {
+    await mongoose.disconnect();
+    cached.conn = null;
+    cached.promise = null;
+    console.log("[MongoDB] Production MongoDB Cluster connection disconnected gracefully.");
+  }
+}
+
+// Attach SIGINT / SIGTERM listeners for graceful shutdown in containerized environments
+if (typeof process !== "undefined") {
+  process.on("SIGINT", async () => {
+    await disconnectProductionDatabase();
+    process.exit(0);
+  });
+
+  process.on("SIGTERM", async () => {
+    await disconnectProductionDatabase();
+    process.exit(0);
+  });
+}
