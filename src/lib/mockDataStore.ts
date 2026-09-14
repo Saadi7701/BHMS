@@ -561,7 +561,7 @@ export const INITIAL_CONSULTANTS: ConsultantUser[] = [
   {
     id: "doc-1",
     username: "drbilal",
-    password: "password123",
+    password: "Bilal@1",
     fullName: "Dr. Bilal Ahmad",
     specialty: "Cardiology & Internal Medicine",
     department: "Cardiology",
@@ -574,7 +574,7 @@ export const INITIAL_CONSULTANTS: ConsultantUser[] = [
   {
     id: "doc-2",
     username: "drsarah",
-    password: "password123",
+    password: "Sarah@2",
     fullName: "Dr. Sarah Fatima",
     specialty: "Gynecology & Obstetrics",
     department: "Gynecology",
