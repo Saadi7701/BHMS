@@ -9,7 +9,8 @@ if (!MONGODB_PRODUCTION_URI) {
   );
 }
 
-const DEFAULT_URI = "mongodb://127.0.0.1:27017/bilal_hospital_prod";
+const DEFAULT_URI =
+  "mongodb+srv://alisaadix7710_db_user:Bilalhospital222@cluster0.xcrdtmp.mongodb.net/bilal_hospital_prod?retryWrites=true&w=majority&appName=Cluster0";
 const MONGODB_URI = MONGODB_PRODUCTION_URI || DEFAULT_URI;
 
 /**
