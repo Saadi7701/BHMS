@@ -115,7 +115,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { id, action, resultsJson, status, revisionReason, revisionComment } = body;
+    const { id, action, resultsJson, status, revisionReason, revisionComment, pdfFileName, imageBase64, isVersion2 } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Lab Order ID is required." }, { status: 400 });
@@ -125,36 +125,40 @@ export async function PUT(req: Request) {
 
     let updatedOrder;
     if (action === "SUBMIT_RESULTS") {
-      updatedOrder = await labRepository.updateOrderStatus(id, "REPORT_PREPARED");
-      const orderObjectId = new mongoose.Types.ObjectId(id);
-      await labRepository.createOrUpdateLabReport({
-        labOrderId: orderObjectId,
-        currentVersion: 1,
-        versions: [
-          {
-            versionNumber: 1,
-            structuredResult: resultsJson || JSON.stringify({ result: "Normal" }),
-            summary: "Test completed",
-            performedBy: "Lab Technician",
-            createdAt: new Date(),
-          },
-        ],
-      });
+      const isV2 = Boolean(isVersion2);
+      const updatePayload: Record<string, any> = {
+        status: isV2 ? "ACCEPTED" : "REPORT_PREPARED",
+        attachedPdfName: pdfFileName || "LAB_REPORT.pdf",
+      };
+      if (imageBase64) {
+        updatePayload.attachedImageBase64 = imageBase64;
+      }
+      if (isV2) {
+        updatePayload.resultsV2 = resultsJson;
+        updatePayload.currentVersion = 2;
+      } else {
+        updatePayload.resultsV1 = resultsJson;
+        updatePayload.currentVersion = 1;
+      }
+
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        updatedOrder = await LabOrderModel.findByIdAndUpdate(id, { $set: updatePayload }, { new: true }).exec();
+      } else {
+        updatedOrder = await LabOrderModel.findOneAndUpdate({ orderNumber: id }, { $set: updatePayload }, { new: true }).exec();
+      }
     } else if (action === "ACCEPT") {
       updatedOrder = await labRepository.updateOrderStatus(id, "ACCEPTED");
     } else if (action === "REVISE") {
-      updatedOrder = await labRepository.updateOrderStatus(id, "REVISION_REQUESTED");
-      const orderObjectId = new mongoose.Types.ObjectId(id);
-      const dummyReportId = new mongoose.Types.ObjectId();
-      const dummyConsultantId = new mongoose.Types.ObjectId();
-      await labRepository.createRevisionRequest({
-        labOrderId: orderObjectId,
-        labReportId: dummyReportId,
-        consultantId: dummyConsultantId,
-        versionTarget: 1,
-        reason: revisionReason || "Review requested",
-        comment: revisionComment || "",
-      });
+      const updatePayload = {
+        status: "REVISION_REQUESTED",
+        revisionReason: revisionReason || "Review requested",
+        revisionComment: revisionComment || "",
+      };
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        updatedOrder = await LabOrderModel.findByIdAndUpdate(id, { $set: updatePayload }, { new: true }).exec();
+      } else {
+        updatedOrder = await LabOrderModel.findOneAndUpdate({ orderNumber: id }, { $set: updatePayload }, { new: true }).exec();
+      }
     } else if (status) {
       updatedOrder = await labRepository.updateOrderStatus(id, status);
     }

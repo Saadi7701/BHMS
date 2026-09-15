@@ -103,7 +103,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { id, action, findings, status } = body;
+    const { id, action, findings, status, pdfFileName, imageBase64 } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Ultrasound Order ID is required." }, { status: 400 });
@@ -113,7 +113,19 @@ export async function PUT(req: Request) {
 
     let updatedOrder;
     if (action === "SUBMIT_REPORT") {
-      updatedOrder = await ultrasoundRepository.updateOrderStatus(id, "SUBMITTED_TO_CONSULTANT");
+      const updatePayload: Record<string, any> = {
+        status: "SUBMITTED_TO_CONSULTANT",
+        findingsV1: findings || "Scan performed",
+        attachedFileName: pdfFileName || "ULTRASOUND_SCAN.pdf",
+      };
+      if (imageBase64) {
+        updatePayload.attachedImageBase64 = imageBase64;
+      }
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        updatedOrder = await UltrasoundOrderModel.findByIdAndUpdate(id, { $set: updatePayload }, { new: true }).exec();
+      } else {
+        updatedOrder = await UltrasoundOrderModel.findOneAndUpdate({ orderNumber: id }, { $set: updatePayload }, { new: true }).exec();
+      }
     } else if (status) {
       updatedOrder = await ultrasoundRepository.updateOrderStatus(id, status);
     }

@@ -30,6 +30,14 @@ export interface ILabOrder extends Document {
   totalFee: number;
   requestDate: Date;
   items: ILabOrderItem[];
+  currentVersion?: number;
+  resultsV1?: string;
+  resultsV2?: string;
+  revisionReason?: string;
+  revisionComment?: string;
+  attachedPdfUrl?: string;
+  attachedPdfName?: string;
+  attachedImageBase64?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -71,6 +79,14 @@ const LabOrderSchema: Schema<ILabOrder> = new Schema(
     totalFee: { type: Number, default: 0.0 },
     requestDate: { type: Date, default: Date.now },
     items: [LabOrderItemSchema],
+    currentVersion: { type: Number, default: 1 },
+    resultsV1: { type: String },
+    resultsV2: { type: String },
+    revisionReason: { type: String },
+    revisionComment: { type: String },
+    attachedPdfUrl: { type: String },
+    attachedPdfName: { type: String },
+    attachedImageBase64: { type: String },
   },
   { timestamps: true }
 );

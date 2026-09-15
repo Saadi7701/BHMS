@@ -241,13 +241,22 @@ export default function Home() {
   const handleSubmitLabResult = async (
     labOrderId: string,
     resultsJson: string,
-    pdfFileName?: string
+    pdfFileName?: string,
+    isVersion2?: boolean,
+    imageBase64?: string
   ) => {
     try {
       await fetch("/api/lab-orders", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: labOrderId, action: "SUBMIT_RESULTS", resultsJson }),
+        body: JSON.stringify({
+          id: labOrderId,
+          action: "SUBMIT_RESULTS",
+          resultsJson,
+          pdfFileName,
+          isVersion2,
+          imageBase64,
+        }),
       });
       loadDynamicData();
     } catch (err) {
@@ -255,12 +264,23 @@ export default function Home() {
     }
   };
 
-  const handleSubmitUltrasoundResult = async (usOrderId: string, findings: string) => {
+  const handleSubmitUltrasoundResult = async (
+    usOrderId: string,
+    findings: string,
+    pdfFileName?: string,
+    imageBase64?: string
+  ) => {
     try {
       await fetch("/api/ultrasound-orders", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: usOrderId, action: "SUBMIT_REPORT", findings }),
+        body: JSON.stringify({
+          id: usOrderId,
+          action: "SUBMIT_REPORT",
+          findings,
+          pdfFileName,
+          imageBase64,
+        }),
       });
       loadDynamicData();
     } catch (err) {

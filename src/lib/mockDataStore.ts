@@ -186,6 +186,7 @@ export interface UltrasoundOrderRecord {
   attachedPdfUrl?: string;
   attachedImageUrl?: string;
   attachedFileName?: string;
+  attachedImageBase64?: string;
 }
 
 export interface MedicineRecord {

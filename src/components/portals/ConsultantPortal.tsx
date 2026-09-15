@@ -766,14 +766,14 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
                               title: `Lab Report - ${lab.orderNumber}`,
                               fileName: lab.attachedPdfName ?? 'LAB_REPORT_FINAL.pdf',
                               type: lab.attachedImageBase64 ? 'image' : 'pdf',
-                              contentSummary: lab.resultsV1 ?? 'Hb: 12.4 g/dL, Platelets: 210,000/uL',
+                              contentSummary: lab.resultsV2 || lab.resultsV1 || 'Diagnostic Report Prepared',
                               imageBase64: lab.attachedImageBase64,
                               visitId: lab.visitId,
                             })
                           }
                           className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs inline-flex items-center gap-1.5"
                         >
-                          <Eye className="w-4 h-4" /> View
+                          <Eye className="w-4 h-4" /> View Report
                         </button>
                       </td>
                     </tr>
@@ -783,21 +783,22 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
                       <td className="py-3 px-4 font-mono font-bold text-rose-600">{us.orderNumber}</td>
                       <td className="py-3 px-4"><Badge variant="danger">ULTRASOUND</Badge></td>
                       <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">{us.patientName}</td>
-                      <td className="py-3 px-4 font-mono text-emerald-600">{us.attachedFileName ?? 'SCAN.pdf'}</td>
+                      <td className="py-3 px-4 font-mono text-emerald-600">{us.attachedFileName ?? 'SCAN_REPORT.pdf'}</td>
                       <td className="py-3 px-4 text-right">
                         <button
                           onClick={() =>
                             setViewingFileModal({
                               title: `Ultrasound - ${us.orderNumber}`,
-                              fileName: us.attachedFileName ?? 'SCAN.pdf',
-                              type: 'pdf',
-                              contentSummary: us.findingsV1 ?? 'Single live intrauterine fetus at 24 weeks.',
+                              fileName: us.attachedFileName ?? 'SCAN_REPORT.pdf',
+                              type: us.attachedImageBase64 ? 'image' : 'pdf',
+                              contentSummary: us.findingsV1 ?? 'Diagnostic scan report completed.',
+                              imageBase64: us.attachedImageBase64,
                               visitId: us.visitId,
                             })
                           }
                           className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs inline-flex items-center gap-1.5"
                         >
-                          <Eye className="w-4 h-4" /> View
+                          <Eye className="w-4 h-4" /> View Report
                         </button>
                       </td>
                     </tr>
@@ -892,25 +893,39 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
                 <span className="text-emerald-400 font-bold flex items-center gap-1.5">
                   <FileText className="w-4 h-4" /> {viewingFileModal.fileName}
                 </span>
-                <span className="text-[10px] text-slate-400">Secure TLS Signed</span>
+                {viewingFileModal.imageBase64 && (
+                  <a
+                    href={viewingFileModal.imageBase64}
+                    download={viewingFileModal.fileName}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-sans font-bold transition"
+                  >
+                    Download File
+                  </a>
+                )}
               </div>
+
               {viewingFileModal.imageBase64 != null ? (
-                <div className="flex justify-center h-80 overflow-hidden rounded-lg border border-slate-800">
+                <div className="flex justify-center min-h-[320px] max-h-[500px] overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-2">
                   {viewingFileModal.imageBase64.startsWith('data:application/pdf') ? (
-                    <iframe src={viewingFileModal.imageBase64} title="Report PDF" className="w-full h-full border-0" />
+                    <iframe src={viewingFileModal.imageBase64} title="Report PDF" className="w-full min-h-[450px] border-0 rounded" />
                   ) : (
-                    <img src={viewingFileModal.imageBase64} alt="Report" className="max-w-full object-contain" />
+                    <img src={viewingFileModal.imageBase64} alt="Report Attachment" className="max-w-full object-contain mx-auto rounded shadow" />
                   )}
                 </div>
-              ) : (
-                <div className="p-4 rounded-lg bg-slate-950 border border-slate-800">
-                  <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-2">Diagnostic Results:</div>
-                  <div className="text-slate-200 leading-relaxed">{viewingFileModal.contentSummary}</div>
+              ) : null}
+
+              {viewingFileModal.contentSummary && (
+                <div className="p-4 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+                  <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">Diagnostic Summary / Notes:</div>
+                  <div className="text-slate-200 font-sans text-xs leading-relaxed whitespace-pre-wrap">{viewingFileModal.contentSummary}</div>
                 </div>
               )}
+
               <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800">
-                <span>Hash: 8f92a10b4c</span>
-                <span className="text-emerald-400 font-bold">Verified</span>
+                <span>Verified Diagnostic File</span>
+                <span className="text-emerald-400 font-bold">Stored in MongoDB Atlas</span>
               </div>
             </div>
             <div className="flex justify-end">

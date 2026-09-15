@@ -21,6 +21,11 @@ export interface IUltrasoundOrder extends Document {
     | "ACCEPTED";
   totalFee: number;
   requestDate: Date;
+  attachedFileName?: string;
+  attachedPdfUrl?: string;
+  attachedImageUrl?: string;
+  attachedImageBase64?: string;
+  findingsV1?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,6 +58,11 @@ const UltrasoundOrderSchema: Schema<IUltrasoundOrder> = new Schema(
     },
     totalFee: { type: Number, default: 0.0 },
     requestDate: { type: Date, default: Date.now },
+    attachedFileName: { type: String },
+    attachedPdfUrl: { type: String },
+    attachedImageUrl: { type: String },
+    attachedImageBase64: { type: String },
+    findingsV1: { type: String },
   },
   { timestamps: true }
 );

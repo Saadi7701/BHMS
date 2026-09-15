@@ -160,6 +160,13 @@ export async function fetchLabOrdersFromApi(): Promise<LabOrderRecord[]> {
           ? new Date(l.requestDate).toISOString().split("T")[0]
           : new Date().toISOString().split("T")[0],
         currentVersion: l.currentVersion || 1,
+        resultsV1: l.resultsV1,
+        resultsV2: l.resultsV2,
+        revisionReason: l.revisionReason,
+        revisionComment: l.revisionComment,
+        attachedPdfName: l.attachedPdfName,
+        attachedPdfUrl: l.attachedPdfUrl,
+        attachedImageBase64: l.attachedImageBase64,
       }));
     }
     return [];
@@ -225,6 +232,11 @@ export async function fetchUltrasoundOrdersFromApi(): Promise<UltrasoundOrderRec
           ? new Date(u.requestDate).toISOString().split("T")[0]
           : new Date().toISOString().split("T")[0],
         currentVersion: u.currentVersion || 1,
+        findingsV1: u.findingsV1,
+        attachedFileName: u.attachedFileName,
+        attachedPdfUrl: u.attachedPdfUrl,
+        attachedImageUrl: u.attachedImageUrl,
+        attachedImageBase64: u.attachedImageBase64,
       }));
     }
     return [];
