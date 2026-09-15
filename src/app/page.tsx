@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Navbar } from "../components/layout/Navbar";
 import { Sidebar } from "../components/layout/Sidebar";
 import { AdminPortal } from "../components/portals/AdminPortal";
@@ -19,14 +19,6 @@ import {
 } from "../lib/authSession";
 
 import {
-  INITIAL_PATIENTS,
-  INITIAL_VISITS,
-  INITIAL_ADMISSIONS,
-  INITIAL_PRESCRIPTIONS,
-  INITIAL_LAB_ORDERS,
-  INITIAL_ULTRASOUND_ORDERS,
-  INITIAL_MEDICINES,
-  INITIAL_CASH_TRANSACTIONS,
   INITIAL_CONSULTANTS,
   PatientRecord,
   VisitRecord,
@@ -59,7 +51,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // Master Dynamic Data State
+  // Master Dynamic Data State (Initially Empty, Populated via API)
   const [patients, setPatients] = useState<PatientRecord[]>([]);
   const [visits, setVisits] = useState<VisitRecord[]>([]);
   const [admissions, setAdmissions] = useState<AdmissionRecord[]>([]);
@@ -69,6 +61,30 @@ export default function Home() {
   const [medicines, setMedicines] = useState<MedicineRecord[]>([]);
   const [cashTransactions, setCashTransactions] = useState<CashTransactionRecord[]>([]);
   const [consultants, setConsultants] = useState<ConsultantUser[]>(INITIAL_CONSULTANTS);
+
+  // Master Data Loading Function
+  const loadDynamicData = useCallback(async () => {
+    try {
+      const [pats, vsts, labs, us, rxs, meds, cash] = await Promise.all([
+        fetchPatientsFromApi(),
+        fetchVisitsFromApi(),
+        fetchLabOrdersFromApi(),
+        fetchUltrasoundOrdersFromApi(),
+        fetchPrescriptionsFromApi(),
+        fetchMedicinesFromApi(),
+        fetchCashTransactionsFromApi(),
+      ]);
+      setPatients(pats);
+      setVisits(vsts);
+      setLabOrders(labs);
+      setUltrasoundOrders(us);
+      setPrescriptions(rxs);
+      setMedicines(meds);
+      setCashTransactions(cash);
+    } catch (err) {
+      console.warn("[Real-time Sync Error]:", err);
+    }
+  }, []);
 
   // Initialize Auth Session on mount
   useEffect(() => {
@@ -80,30 +96,16 @@ export default function Home() {
     setIsInitializing(false);
   }, []);
 
-  // Sync real-time dynamic data from API endpoints
+  // Continuous 3-Second Real-Time Database Polling Sync across all portals
   useEffect(() => {
     if (currentUser) {
-      const loadDynamicData = async () => {
-        const [pats, vsts, labs, us, rxs, meds, cash] = await Promise.all([
-          fetchPatientsFromApi(),
-          fetchVisitsFromApi(),
-          fetchLabOrdersFromApi(),
-          fetchUltrasoundOrdersFromApi(),
-          fetchPrescriptionsFromApi(),
-          fetchMedicinesFromApi(),
-          fetchCashTransactionsFromApi(),
-        ]);
-        setPatients(pats);
-        setVisits(vsts);
-        setLabOrders(labs);
-        setUltrasoundOrders(us);
-        setPrescriptions(rxs);
-        setMedicines(meds);
-        setCashTransactions(cash);
-      };
       loadDynamicData();
+      const interval = setInterval(() => {
+        loadDynamicData();
+      }, 3000);
+      return () => clearInterval(interval);
     }
-  }, [currentUser]);
+  }, [currentUser, loadDynamicData]);
 
   const setDefaultTabForPortal = (portal: AuthSessionUser["portal"]) => {
     switch (portal) {
@@ -139,19 +141,22 @@ export default function Home() {
     setCurrentUser(null);
   };
 
-  const handleAddPatient = (patient: PatientRecord) => {
-    setPatients([patient, ...patients]);
-    createPatientApi(patient);
+  // Real-Time DB Handlers
+  const handleAddPatient = async (patient: PatientRecord) => {
+    setPatients((prev) => [patient, ...prev]);
+    await createPatientApi(patient);
+    loadDynamicData();
   };
 
-  const handleAddVisit = (visit: VisitRecord, transaction: CashTransactionRecord) => {
-    setVisits([visit, ...visits]);
-    setCashTransactions([transaction, ...cashTransactions]);
-    createVisitApi(visit);
+  const handleAddVisit = async (visit: VisitRecord, transaction: CashTransactionRecord) => {
+    setVisits((prev) => [visit, ...prev]);
+    setCashTransactions((prev) => [transaction, ...prev]);
+    await createVisitApi(visit);
+    loadDynamicData();
   };
 
   const handleAddAdmission = (admission: AdmissionRecord, transaction: CashTransactionRecord) => {
-    setAdmissions([admission, ...admissions]);
+    setAdmissions((prev) => [admission, ...prev]);
   };
 
   const handleDischargePatient = (admissionId: string) => {
@@ -165,21 +170,24 @@ export default function Home() {
     );
   };
 
-  const handleAddPrescription = (prescription: PrescriptionRecord) => {
-    setPrescriptions([prescription, ...prescriptions]);
-    createPrescriptionApi(prescription);
+  const handleAddPrescription = async (prescription: PrescriptionRecord) => {
+    setPrescriptions((prev) => [prescription, ...prev]);
+    await createPrescriptionApi(prescription);
+    loadDynamicData();
   };
 
-  const handleAddLabOrder = (order: LabOrderRecord, transaction: CashTransactionRecord) => {
-    setLabOrders([order, ...labOrders]);
-    setCashTransactions([transaction, ...cashTransactions]);
-    createLabOrderApi(order);
+  const handleAddLabOrder = async (order: LabOrderRecord, transaction: CashTransactionRecord) => {
+    setLabOrders((prev) => [order, ...prev]);
+    setCashTransactions((prev) => [transaction, ...prev]);
+    await createLabOrderApi(order);
+    loadDynamicData();
   };
 
-  const handleAddUltrasoundOrder = (order: UltrasoundOrderRecord, transaction: CashTransactionRecord) => {
-    setUltrasoundOrders([order, ...ultrasoundOrders]);
-    setCashTransactions([transaction, ...cashTransactions]);
-    createUltrasoundOrderApi(order);
+  const handleAddUltrasoundOrder = async (order: UltrasoundOrderRecord, transaction: CashTransactionRecord) => {
+    setUltrasoundOrders((prev) => [order, ...prev]);
+    setCashTransactions((prev) => [transaction, ...prev]);
+    await createUltrasoundOrderApi(order);
+    loadDynamicData();
   };
 
   const handleAcceptLabReport = (labOrderId: string) => {
@@ -198,41 +206,48 @@ export default function Home() {
     );
   };
 
-  const handleSubmitLabResult = (
+  const handleSubmitLabResult = async (
     labOrderId: string,
     resultsJson: string,
-    pdfFileName?: string,
-    isVersion2?: boolean,
-    imageBase64?: string
+    pdfFileName?: string
   ) => {
-    setLabOrders(
-      labOrders.map((l) => {
-        if (l.id === labOrderId) {
-          return { ...l, status: "REPORT_PREPARED", pdfUrl: pdfFileName || "lab_report_v1.pdf" };
-        }
-        return l;
-      })
-    );
+    try {
+      await fetch("/api/lab-orders", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: labOrderId, action: "SUBMIT_RESULTS", resultsJson }),
+      });
+      loadDynamicData();
+    } catch (err) {
+      console.warn("Error updating lab order:", err);
+    }
   };
 
-  const handleSubmitUltrasoundResult = (usOrderId: string, findings: string) => {
-    setUltrasoundOrders(
-      ultrasoundOrders.map((u) => (u.id === usOrderId ? { ...u, status: "REPORT_PREPARED" } : u))
-    );
+  const handleSubmitUltrasoundResult = async (usOrderId: string, findings: string) => {
+    try {
+      await fetch("/api/ultrasound-orders", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: usOrderId, action: "SUBMIT_REPORT", findings }),
+      });
+      loadDynamicData();
+    } catch (err) {
+      console.warn("Error updating ultrasound order:", err);
+    }
   };
 
   const handleDispensePrescription = (prescriptionId: string) => {
     setPrescriptions(
-      prescriptions.map((p) => (p.id === prescriptionId ? { ...p, status: "DISPENSED" } : p))
+      prescriptions.map((p) => (p.id === prescriptionId ? { ...p, isDispensed: true } : p))
     );
   };
 
   const handleAddMedicineBatch = (newMed: MedicineRecord) => {
-    setMedicines([newMed, ...medicines]);
+    setMedicines((prev) => [newMed, ...prev]);
   };
 
   const handleAddExpense = (transaction: CashTransactionRecord) => {
-    setCashTransactions([transaction, ...cashTransactions]);
+    setCashTransactions((prev) => [transaction, ...prev]);
   };
 
   const handleAddReversal = (originalTxnId: string, reason: string) => {
@@ -253,12 +268,12 @@ export default function Home() {
         mrNumber: orig.mrNumber,
         createdBy: "Admin Supervisor",
       };
-      setCashTransactions([reversalTxn, ...cashTransactions]);
+      setCashTransactions((prev) => [reversalTxn, ...prev]);
     }
   };
 
   const handleAddConsultant = (consultant: ConsultantUser) => {
-    setConsultants([consultant, ...consultants]);
+    setConsultants((prev) => [consultant, ...prev]);
   };
 
   const handleConsultantLogin = (consultantId: string) => {
@@ -273,21 +288,21 @@ export default function Home() {
     );
   };
 
-  const handleUpdateVisitStatus = (visitId: string, status: VisitRecord["status"]) => {
-    setVisits(
-      visits.map((v) => (v.id === visitId ? { ...v, status } : v))
+  const handleUpdateVisitStatus = async (visitId: string, status: VisitRecord["status"]) => {
+    setVisits((prev) =>
+      prev.map((v) => (v.id === visitId ? { ...v, status } : v))
     );
   };
 
   const handleUpdateLabOrderStatus = (labOrderId: string, status: LabOrderRecord["status"]) => {
-    setLabOrders(
-      labOrders.map((l) => (l.id === labOrderId ? { ...l, status } : l))
+    setLabOrders((prev) =>
+      prev.map((l) => (l.id === labOrderId ? { ...l, status } : l))
     );
   };
 
   const handleUpdateUltrasoundOrderStatus = (usOrderId: string, status: UltrasoundOrderRecord["status"]) => {
-    setUltrasoundOrders(
-      ultrasoundOrders.map((u) => (u.id === usOrderId ? { ...u, status } : u))
+    setUltrasoundOrders((prev) =>
+      prev.map((u) => (u.id === usOrderId ? { ...u, status } : u))
     );
   };
 
