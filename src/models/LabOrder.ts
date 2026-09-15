@@ -11,8 +11,11 @@ export interface ILabOrder extends Document {
   legacyId?: string;
   orderNumber: string;
   patientId: mongoose.Types.ObjectId;
+  patientName?: string;
+  mrNumber?: string;
   visitId: mongoose.Types.ObjectId;
   consultantId: mongoose.Types.ObjectId;
+  consultantName?: string;
   testCategory: string;
   clinicalNotes?: string;
   priority: "NORMAL" | "URGENT";
@@ -43,8 +46,11 @@ const LabOrderSchema: Schema<ILabOrder> = new Schema(
     legacyId: { type: String, index: true },
     orderNumber: { type: String, required: true, unique: true, index: true, trim: true },
     patientId: { type: Schema.Types.ObjectId, ref: "Patient", required: true, index: true },
+    patientName: { type: String, trim: true },
+    mrNumber: { type: String, trim: true },
     visitId: { type: Schema.Types.ObjectId, ref: "PatientVisit", required: true, index: true },
     consultantId: { type: Schema.Types.ObjectId, ref: "Consultant", required: true, index: true },
+    consultantName: { type: String, trim: true },
     testCategory: { type: String, required: true },
     clinicalNotes: { type: String },
     priority: { type: String, default: "NORMAL", enum: ["NORMAL", "URGENT"] },

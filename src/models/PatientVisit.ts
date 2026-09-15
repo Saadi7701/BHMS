@@ -4,7 +4,10 @@ export interface IPatientVisit extends Document {
   legacyId?: string;
   visitNumber: string;
   patientId: mongoose.Types.ObjectId;
+  patientName?: string;
+  mrNumber?: string;
   consultantId: mongoose.Types.ObjectId;
+  consultantName?: string;
   visitDate: Date;
   arrivalTime: Date;
   department: string;
@@ -31,7 +34,10 @@ const PatientVisitSchema: Schema<IPatientVisit> = new Schema(
     legacyId: { type: String, index: true },
     visitNumber: { type: String, required: true, unique: true, index: true, trim: true },
     patientId: { type: Schema.Types.ObjectId, ref: "Patient", required: true, index: true },
+    patientName: { type: String, trim: true },
+    mrNumber: { type: String, trim: true },
     consultantId: { type: Schema.Types.ObjectId, ref: "Consultant", required: true, index: true },
+    consultantName: { type: String, trim: true },
     visitDate: { type: Date, default: Date.now, index: true },
     arrivalTime: { type: Date, default: Date.now },
     department: { type: String, required: true },
@@ -40,7 +46,7 @@ const PatientVisitSchema: Schema<IPatientVisit> = new Schema(
     consultationFee: { type: Number, default: 0.0 },
     amountReceived: { type: Number, default: 0.0 },
     paymentMethod: { type: String, default: "CASH" },
-    receptionistId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    receptionistId: { type: Schema.Types.ObjectId, ref: "User" },
     status: {
       type: String,
       required: true,

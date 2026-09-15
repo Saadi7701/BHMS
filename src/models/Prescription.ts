@@ -13,8 +13,11 @@ export interface IPrescriptionItem {
 export interface IPrescription extends Document {
   legacyId?: string;
   patientId: mongoose.Types.ObjectId;
+  patientName?: string;
+  mrNumber?: string;
   visitId: mongoose.Types.ObjectId;
   consultantId: mongoose.Types.ObjectId;
+  consultantName?: string;
   consultationId?: mongoose.Types.ObjectId;
   diagnosis: string;
   prescriptionDate: Date;
@@ -39,8 +42,11 @@ const PrescriptionSchema: Schema<IPrescription> = new Schema(
   {
     legacyId: { type: String, index: true },
     patientId: { type: Schema.Types.ObjectId, ref: "Patient", required: true, index: true },
+    patientName: { type: String, trim: true },
+    mrNumber: { type: String, trim: true },
     visitId: { type: Schema.Types.ObjectId, ref: "PatientVisit", required: true, index: true },
     consultantId: { type: Schema.Types.ObjectId, ref: "Consultant", required: true, index: true },
+    consultantName: { type: String, trim: true },
     consultationId: { type: Schema.Types.ObjectId, ref: "Consultation" },
     diagnosis: { type: String, required: true },
     prescriptionDate: { type: Date, default: Date.now },

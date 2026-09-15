@@ -63,8 +63,11 @@ export async function POST(req: Request) {
     const newOrder = await labRepository.createLabOrder({
       orderNumber,
       patientId: patientObjectId,
+      patientName: body.patientName || "Patient",
+      mrNumber: body.mrNumber || "MR-0000",
       visitId: visitObjectId,
       consultantId: consultantObjectId,
+      consultantName: body.consultantName || "Doctor",
       testCategory: body.category || body.testCategory || "General Pathology",
       clinicalNotes: body.clinicalIndication || body.clinicalNotes || "",
       priority: body.priority === "URGENT" ? "URGENT" : "NORMAL",

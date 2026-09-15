@@ -55,8 +55,11 @@ export async function POST(req: Request) {
 
     const newPrescription = await prescriptionRepository.createPrescription({
       patientId: patientObjectId,
+      patientName: body.patientName || "Patient",
+      mrNumber: body.mrNumber || "MR-0000",
       visitId: visitObjectId,
       consultantId: consultantObjectId,
+      consultantName: body.consultantName || "Dr. Bilal Ahmad",
       diagnosis: body.diagnosis || "General Consultation",
       notes: body.instructions || body.clinicalNotes || "",
       isDispensed: false,

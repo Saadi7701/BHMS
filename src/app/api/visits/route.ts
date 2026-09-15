@@ -68,12 +68,16 @@ export async function POST(req: Request) {
     const newVisit = await visitRepository.createVisit({
       visitNumber,
       patientId: patientObjectId,
+      patientName: body.patientName || "Patient",
+      mrNumber: body.mrNumber || "MR-0000",
       consultantId: consultantObjectId,
+      consultantName: body.consultantName || "Dr. Bilal Ahmad",
       department: body.department || "OPD Reception",
       visitType: body.visitType || "OPD",
+      reasonForVisit: body.reasonForVisit || "OPD Consultation",
       consultationFee: fee,
       amountReceived: received,
-      paymentMethod: "CASH",
+      paymentMethod: body.paymentMethod || "CASH",
       receptionistId: receptionistObjectId,
       status: body.status || "WAITING",
       visitDate: new Date(),
@@ -88,7 +92,7 @@ export async function POST(req: Request) {
         department: "OPD Reception",
         amount: received,
         paymentMethod: "CASH",
-        description: `OPD Fee collected for visit ${visitNumber}`,
+        description: `OPD Fee collected for ${body.patientName || visitNumber}`,
         patientId: patientObjectId,
         visitId: newVisit._id as mongoose.Types.ObjectId,
         createdById: receptionistObjectId,
@@ -96,7 +100,7 @@ export async function POST(req: Request) {
       });
     }
 
-    console.log(`[MongoDB Success] Visit ${visitNumber} saved to Atlas!`);
+    console.log(`[MongoDB Success] Visit ${visitNumber} for ${body.patientName} saved to Atlas!`);
 
     return NextResponse.json(
       { message: "Visit created successfully", visit: newVisit },
