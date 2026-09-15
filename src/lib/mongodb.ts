@@ -1,17 +1,16 @@
-import "dotenv/config";
 import mongoose from "mongoose";
 
-const MONGODB_PRODUCTION_URI = process.env.MONGODB_PRODUCTION_URI;
-
-if (!MONGODB_PRODUCTION_URI) {
-  console.warn(
-    "[MongoDB Alert] MONGODB_PRODUCTION_URI environment variable is not defined. Falling back to default local connection string."
-  );
-}
-
-const DEFAULT_URI =
+const MONGODB_URI =
+  process.env.MONGODB_PRODUCTION_URI ||
   "mongodb+srv://alisaadix7710_db_user:Bilalhospital222@cluster0.xcrdtmp.mongodb.net/bilal_hospital_prod?retryWrites=true&w=majority&appName=Cluster0";
-const MONGODB_URI = MONGODB_PRODUCTION_URI || DEFAULT_URI;
+
+if (!process.env.MONGODB_PRODUCTION_URI) {
+  console.warn(
+    "[MongoDB Alert] MONGODB_PRODUCTION_URI environment variable is not defined. Using hardcoded fallback URI."
+  );
+} else {
+  console.log("[MongoDB] Using MONGODB_PRODUCTION_URI from environment.");
+}
 
 /**
  * Global cache interface to maintain a single Mongoose connection across hot reloads.
@@ -43,7 +42,7 @@ export const MONGOOSE_PRODUCTION_OPTIONS: mongoose.ConnectOptions = {
   connectTimeoutMS: 10000,      // Timeout for initial connection establishment
   retryWrites: true,            // Auto retry write operations on transient network errors
   retryReads: true,             // Auto retry read operations
-  autoIndex: process.env.NODE_ENV !== "production", // Enable auto-indexing in dev only
+  autoIndex: true, // Always build indexes (needed for production Atlas text search and unique constraints)
 };
 
 /**

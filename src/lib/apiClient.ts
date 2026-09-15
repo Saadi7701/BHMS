@@ -104,7 +104,21 @@ export async function createVisitApi(visit: VisitRecord): Promise<boolean> {
     const res = await fetch("/api/visits", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(visit),
+      body: JSON.stringify({
+        patientId: visit.patientId,
+        patientName: visit.patientName,
+        mrNumber: visit.mrNumber,
+        consultantId: visit.consultantId,
+        consultantName: visit.consultantName,
+        department: visit.department,
+        visitType: visit.destinationType || "OPD",
+        visitNumber: visit.visitNumber,
+        reasonForVisit: visit.reasonForVisit || "OPD Consultation",
+        feeCharged: visit.consultationFee,
+        netCollectedAmount: visit.amountReceived,
+        paymentMethod: visit.paymentMethod || "CASH",
+        status: visit.status || "WAITING",
+      }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -160,7 +174,21 @@ export async function createLabOrderApi(order: LabOrderRecord): Promise<boolean>
     const res = await fetch("/api/lab-orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(order),
+      body: JSON.stringify({
+        patientId: order.patientId,
+        patientName: order.patientName,
+        mrNumber: order.mrNumber,
+        visitId: order.visitId,
+        consultantId: order.consultantId,
+        consultantName: order.consultantName,
+        testName: Array.isArray(order.tests) && order.tests.length > 0 ? order.tests[0] : (order.tests as any || "Lab Test"),
+        testCode: "TEST-01",
+        category: order.testCategory,
+        priority: order.priority || "NORMAL",
+        fee: order.totalFee || 0,
+        clinicalIndication: "",
+        orderNumber: order.orderNumber,
+      }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -211,10 +239,26 @@ export async function createUltrasoundOrderApi(order: UltrasoundOrderRecord): Pr
     const res = await fetch("/api/ultrasound-orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(order),
+      body: JSON.stringify({
+        patientId: order.patientId,
+        patientName: order.patientName,
+        mrNumber: order.mrNumber,
+        visitId: order.visitId,
+        consultantId: order.consultantId,
+        consultantName: order.consultantName,
+        scanType: order.requestedExam,
+        clinicalIndication: order.clinicalIndication || "",
+        priority: "NORMAL",
+        fee: order.totalFee || 0,
+        orderNumber: order.orderNumber,
+      }),
     });
     const data = await res.json();
-    return res.ok;
+    if (!res.ok) {
+      console.error("[API Client Error] Ultrasound order failed:", data.error);
+      return false;
+    }
+    return true;
   } catch (err: any) {
     console.error("[API Client Error] Ultrasound order exception:", err.message);
     return false;
@@ -262,10 +306,30 @@ export async function createPrescriptionApi(prescription: PrescriptionRecord): P
     const res = await fetch("/api/prescriptions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(prescription),
+      body: JSON.stringify({
+        patientId: prescription.patientId,
+        patientName: prescription.patientName,
+        mrNumber: prescription.mrNumber,
+        visitId: prescription.visitId,
+        consultantId: prescription.consultantId,
+        consultantName: prescription.consultantName,
+        diagnosis: prescription.diagnosis,
+        instructions: "",
+        medicines: (prescription.items || []).map((item) => ({
+          medicineName: item.medicineName,
+          dosage: item.dosage,
+          frequency: item.frequency,
+          durationDays: parseInt(item.duration) || 5,
+          instructions: item.instructions || "",
+        })),
+      }),
     });
     const data = await res.json();
-    return res.ok;
+    if (!res.ok) {
+      console.error("[API Client Error] Create prescription failed:", data.error);
+      return false;
+    }
+    return true;
   } catch (err: any) {
     console.error("[API Client Error] Create prescription exception:", err.message);
     return false;

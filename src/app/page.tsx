@@ -144,7 +144,11 @@ export default function Home() {
   // Real-Time DB Handlers
   const handleAddPatient = async (patient: PatientRecord) => {
     setPatients((prev) => [patient, ...prev]);
-    await createPatientApi(patient);
+    // Map frontend PatientRecord to the shape the API expects
+    await createPatientApi({
+      ...patient,
+      fatherOrHusbandName: patient.fatherHusbandName,
+    } as any);
     loadDynamicData();
   };
 
