@@ -114,3 +114,28 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json();
+    const { id, status } = body;
+
+    if (!id || !status) {
+      return NextResponse.json({ error: "Visit ID and status are required." }, { status: 400 });
+    }
+
+    await connectToProductionDatabase();
+    const updatedVisit = await visitRepository.updateStatus(id, status);
+
+    return NextResponse.json(
+      { message: "Visit status updated successfully", visit: updatedVisit },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error("[Visits API PUT Error]:", error);
+    return NextResponse.json(
+      { error: "Failed to update visit status." },
+      { status: 500 }
+    );
+  }
+}

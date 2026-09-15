@@ -3,6 +3,8 @@ import { LabOrderModel, ILabOrder } from "../models/LabOrder";
 import { LabReportModel, ILabReport } from "../models/LabReport";
 import { LabRevisionRequestModel, ILabRevisionRequest } from "../models/LabRevisionRequest";
 
+import mongoose from "mongoose";
+
 export class LabRepository {
   async createLabOrder(orderData: Partial<ILabOrder>): Promise<ILabOrder> {
     await connectToProductionDatabase();
@@ -12,17 +14,30 @@ export class LabRepository {
 
   async findOrdersByPatient(patientId: string): Promise<ILabOrder[]> {
     await connectToProductionDatabase();
-    return LabOrderModel.find({ patientId }).sort({ createdAt: -1 }).exec();
+    if (mongoose.Types.ObjectId.isValid(patientId)) {
+      return LabOrderModel.find({ patientId: new mongoose.Types.ObjectId(patientId) }).sort({ createdAt: -1 }).exec();
+    }
+    return LabOrderModel.find({ $or: [{ mrNumber: patientId }, { legacyId: patientId }] }).sort({ createdAt: -1 }).exec();
   }
 
   async findOrderById(id: string): Promise<ILabOrder | null> {
     await connectToProductionDatabase();
-    return LabOrderModel.findById(id).exec();
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      return LabOrderModel.findById(id).exec();
+    }
+    return LabOrderModel.findOne({ $or: [{ orderNumber: id }, { legacyId: id }] }).exec();
   }
 
   async updateOrderStatus(id: string, status: ILabOrder["status"]): Promise<ILabOrder | null> {
     await connectToProductionDatabase();
-    return LabOrderModel.findByIdAndUpdate(id, { $set: { status } }, { new: true }).exec();
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      return LabOrderModel.findByIdAndUpdate(id, { $set: { status } }, { new: true }).exec();
+    }
+    return LabOrderModel.findOneAndUpdate(
+      { $or: [{ orderNumber: id }, { legacyId: id }] },
+      { $set: { status } },
+      { new: true }
+    ).exec();
   }
 
   async createOrUpdateLabReport(reportData: Partial<ILabReport>): Promise<ILabReport> {

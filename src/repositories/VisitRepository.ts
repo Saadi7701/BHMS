@@ -1,6 +1,8 @@
 import { connectToProductionDatabase } from "../lib/mongodb";
 import { PatientVisitModel, IPatientVisit } from "../models/PatientVisit";
 
+import mongoose from "mongoose";
+
 export class VisitRepository {
   async findByVisitNumber(visitNumber: string): Promise<IPatientVisit | null> {
     await connectToProductionDatabase();
@@ -9,7 +11,10 @@ export class VisitRepository {
 
   async findById(id: string): Promise<IPatientVisit | null> {
     await connectToProductionDatabase();
-    return PatientVisitModel.findById(id).exec();
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      return PatientVisitModel.findById(id).exec();
+    }
+    return PatientVisitModel.findOne({ $or: [{ visitNumber: id }, { legacyId: id }] }).exec();
   }
 
   async createVisit(visitData: Partial<IPatientVisit>): Promise<IPatientVisit> {
@@ -20,14 +25,31 @@ export class VisitRepository {
 
   async findByConsultant(consultantId: string, status?: string): Promise<IPatientVisit[]> {
     await connectToProductionDatabase();
-    const filter: Record<string, any> = { consultantId };
+    const filter: Record<string, any> = {};
+    if (consultantId) {
+      if (mongoose.Types.ObjectId.isValid(consultantId)) {
+        filter.consultantId = new mongoose.Types.ObjectId(consultantId);
+      } else {
+        filter.$or = [
+          { consultantName: new RegExp(consultantId.replace("doc-1", "Bilal").replace("doc-2", "Sarah"), "i") },
+          { legacyId: consultantId },
+        ];
+      }
+    }
     if (status) filter.status = status;
     return PatientVisitModel.find(filter).sort({ visitDate: -1 }).exec();
   }
 
   async updateStatus(id: string, status: IPatientVisit["status"]): Promise<IPatientVisit | null> {
     await connectToProductionDatabase();
-    return PatientVisitModel.findByIdAndUpdate(id, { $set: { status } }, { new: true }).exec();
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      return PatientVisitModel.findByIdAndUpdate(id, { $set: { status } }, { new: true }).exec();
+    }
+    return PatientVisitModel.findOneAndUpdate(
+      { $or: [{ visitNumber: id }, { legacyId: id }] },
+      { $set: { status } },
+      { new: true }
+    ).exec();
   }
 }
 

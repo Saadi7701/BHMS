@@ -390,3 +390,75 @@ export async function fetchCashTransactionsFromApi(): Promise<CashTransactionRec
     return [];
   }
 }
+
+export async function createCashTransactionApi(transaction: CashTransactionRecord): Promise<boolean> {
+  try {
+    const res = await fetch("/api/cash", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        transactionNumber: transaction.transactionNumber,
+        transactionType: transaction.transactionType || "INCOME",
+        category: transaction.category,
+        department: transaction.department || "General",
+        amount: transaction.amount,
+        paymentMode: transaction.paymentMethod || "CASH",
+        description: transaction.description || `Cash transaction for ${transaction.category}`,
+      }),
+    });
+    return res.ok;
+  } catch (err: any) {
+    console.error("[API Client Error] Create cash transaction failed:", err.message);
+    return false;
+  }
+}
+
+export async function updateVisitStatusApi(visitId: string, status: string): Promise<boolean> {
+  try {
+    const res = await fetch("/api/visits", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: visitId, status }),
+    });
+    return res.ok;
+  } catch (err: any) {
+    console.error("[API Client Error] Update visit status failed:", err.message);
+    return false;
+  }
+}
+
+export async function dispensePrescriptionApi(prescriptionId: string): Promise<boolean> {
+  try {
+    const res = await fetch("/api/prescriptions", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: prescriptionId, isDispensed: true }),
+    });
+    return res.ok;
+  } catch (err: any) {
+    console.error("[API Client Error] Dispense prescription failed:", err.message);
+    return false;
+  }
+}
+
+export async function createMedicineApi(medicine: MedicineRecord): Promise<boolean> {
+  try {
+    const res = await fetch("/api/medicines", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        brandName: medicine.brandName,
+        genericName: medicine.genericName,
+        category: medicine.category,
+        purchasePrice: medicine.purchasePrice,
+        salePrice: medicine.salePrice,
+        availableQuantity: medicine.availableQty,
+        reorderLevel: medicine.reorderLevel,
+      }),
+    });
+    return res.ok;
+  } catch (err: any) {
+    console.error("[API Client Error] Create medicine failed:", err.message);
+    return false;
+  }
+}

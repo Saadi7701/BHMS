@@ -138,13 +138,49 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
     setActiveVisit(null);
   };
 
-  const consultantVisits = visits.filter(
-    (v) =>
-      v.consultantId === selectedConsultant &&
-      (v.status === 'WAITING' || v.status === 'WITH_CONSULTANT' || v.status === 'CHECKED')
-  );
-  const consultantLabOrders = labOrders.filter((l) => l.consultantId === selectedConsultant);
-  const consultantUltrasoundOrders = ultrasoundOrders.filter((u) => u.consultantId === selectedConsultant);
+  const consultantVisits = visits.filter((v) => {
+    const isDoc1Match =
+      selectedConsultant === "doc-1" &&
+      (v.consultantId === "doc-1" ||
+        v.consultantName?.toLowerCase().includes("bilal") ||
+        !v.consultantId);
+    const isDoc2Match =
+      selectedConsultant === "doc-2" &&
+      (v.consultantId === "doc-2" || v.consultantName?.toLowerCase().includes("sarah"));
+    const isGenericMatch = v.consultantId === selectedConsultant;
+    const isConsultantMatch = isDoc1Match || isDoc2Match || isGenericMatch;
+    return (
+      isConsultantMatch &&
+      (v.status === "REGISTERED" ||
+        v.status === "WAITING" ||
+        v.status === "WITH_CONSULTANT" ||
+        v.status === "CHECKED")
+    );
+  });
+
+  const consultantLabOrders = labOrders.filter((l) => {
+    const isDoc1Match =
+      selectedConsultant === "doc-1" &&
+      (l.consultantId === "doc-1" ||
+        l.consultantName?.toLowerCase().includes("bilal") ||
+        !l.consultantId);
+    const isDoc2Match =
+      selectedConsultant === "doc-2" &&
+      (l.consultantId === "doc-2" || l.consultantName?.toLowerCase().includes("sarah"));
+    return isDoc1Match || isDoc2Match || l.consultantId === selectedConsultant;
+  });
+
+  const consultantUltrasoundOrders = ultrasoundOrders.filter((u) => {
+    const isDoc1Match =
+      selectedConsultant === "doc-1" &&
+      (u.consultantId === "doc-1" ||
+        u.consultantName?.toLowerCase().includes("bilal") ||
+        !u.consultantId);
+    const isDoc2Match =
+      selectedConsultant === "doc-2" &&
+      (u.consultantId === "doc-2" || u.consultantName?.toLowerCase().includes("sarah"));
+    return isDoc1Match || isDoc2Match || u.consultantId === selectedConsultant;
+  });
 
   const handleAddMedicine = () => {
     if (!newRxItem.medicineName) return;

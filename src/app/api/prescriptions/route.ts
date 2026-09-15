@@ -85,3 +85,28 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json();
+    const { id, isDispensed } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "Prescription ID is required." }, { status: 400 });
+    }
+
+    await connectToProductionDatabase();
+    const updated = await prescriptionRepository.markDispensed(id);
+
+    return NextResponse.json(
+      { message: "Prescription status updated successfully", prescription: updated },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error("[Prescriptions API PUT Error]:", error);
+    return NextResponse.json(
+      { error: "Failed to update prescription status." },
+      { status: 500 }
+    );
+  }
+}

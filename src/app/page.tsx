@@ -36,14 +36,18 @@ import {
   createPatientApi,
   fetchVisitsFromApi,
   createVisitApi,
+  updateVisitStatusApi,
   fetchLabOrdersFromApi,
   createLabOrderApi,
   fetchUltrasoundOrdersFromApi,
   createUltrasoundOrderApi,
   fetchPrescriptionsFromApi,
   createPrescriptionApi,
+  dispensePrescriptionApi,
   fetchMedicinesFromApi,
+  createMedicineApi,
   fetchCashTransactionsFromApi,
+  createCashTransactionApi,
 } from "../lib/apiClient";
 
 export default function Home() {
@@ -156,11 +160,17 @@ export default function Home() {
     setVisits((prev) => [visit, ...prev]);
     setCashTransactions((prev) => [transaction, ...prev]);
     await createVisitApi(visit);
+    if (transaction && transaction.amount > 0) {
+      await createCashTransactionApi(transaction);
+    }
     loadDynamicData();
   };
 
   const handleAddAdmission = (admission: AdmissionRecord, transaction: CashTransactionRecord) => {
     setAdmissions((prev) => [admission, ...prev]);
+    if (transaction && transaction.amount > 0) {
+      createCashTransactionApi(transaction);
+    }
   };
 
   const handleDischargePatient = (admissionId: string) => {
@@ -184,6 +194,9 @@ export default function Home() {
     setLabOrders((prev) => [order, ...prev]);
     setCashTransactions((prev) => [transaction, ...prev]);
     await createLabOrderApi(order);
+    if (transaction && transaction.amount > 0) {
+      await createCashTransactionApi(transaction);
+    }
     loadDynamicData();
   };
 
@@ -191,16 +204,25 @@ export default function Home() {
     setUltrasoundOrders((prev) => [order, ...prev]);
     setCashTransactions((prev) => [transaction, ...prev]);
     await createUltrasoundOrderApi(order);
+    if (transaction && transaction.amount > 0) {
+      await createCashTransactionApi(transaction);
+    }
     loadDynamicData();
   };
 
-  const handleAcceptLabReport = (labOrderId: string) => {
+  const handleAcceptLabReport = async (labOrderId: string) => {
     setLabOrders(
       labOrders.map((l) => (l.id === labOrderId ? { ...l, status: "ACCEPTED" } : l))
     );
+    await fetch("/api/lab-orders", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: labOrderId, status: "ACCEPTED" }),
+    });
+    loadDynamicData();
   };
 
-  const handleRequestLabRevision = (labOrderId: string, reason: string, comment: string) => {
+  const handleRequestLabRevision = async (labOrderId: string, reason: string, comment: string) => {
     setLabOrders(
       labOrders.map((l) =>
         l.id === labOrderId
@@ -208,6 +230,12 @@ export default function Home() {
           : l
       )
     );
+    await fetch("/api/lab-orders", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: labOrderId, action: "REVISE", revisionReason: reason, revisionComment: comment }),
+    });
+    loadDynamicData();
   };
 
   const handleSubmitLabResult = async (
@@ -240,21 +268,31 @@ export default function Home() {
     }
   };
 
-  const handleDispensePrescription = (prescriptionId: string) => {
-    setPrescriptions(
-      prescriptions.map((p) => (p.id === prescriptionId ? { ...p, isDispensed: true } : p))
+  const handleDispensePrescription = async (prescriptionId: string, transaction?: CashTransactionRecord) => {
+    setPrescriptions((prev) =>
+      prev.map((p) => (p.id === prescriptionId ? { ...p, isDispensed: true } : p))
     );
+    await dispensePrescriptionApi(prescriptionId);
+    if (transaction) {
+      setCashTransactions((prev) => [transaction, ...prev]);
+      await createCashTransactionApi(transaction);
+    }
+    loadDynamicData();
   };
 
-  const handleAddMedicineBatch = (newMed: MedicineRecord) => {
+  const handleAddMedicineBatch = async (newMed: MedicineRecord) => {
     setMedicines((prev) => [newMed, ...prev]);
+    await createMedicineApi(newMed);
+    loadDynamicData();
   };
 
-  const handleAddExpense = (transaction: CashTransactionRecord) => {
+  const handleAddExpense = async (transaction: CashTransactionRecord) => {
     setCashTransactions((prev) => [transaction, ...prev]);
+    await createCashTransactionApi(transaction);
+    loadDynamicData();
   };
 
-  const handleAddReversal = (originalTxnId: string, reason: string) => {
+  const handleAddReversal = async (originalTxnId: string, reason: string) => {
     const orig = cashTransactions.find((t) => t.id === originalTxnId);
     if (orig) {
       const reversalTxn: CashTransactionRecord = {
@@ -273,6 +311,8 @@ export default function Home() {
         createdBy: "Admin Supervisor",
       };
       setCashTransactions((prev) => [reversalTxn, ...prev]);
+      await createCashTransactionApi(reversalTxn);
+      loadDynamicData();
     }
   };
 
@@ -296,18 +336,32 @@ export default function Home() {
     setVisits((prev) =>
       prev.map((v) => (v.id === visitId ? { ...v, status } : v))
     );
+    await updateVisitStatusApi(visitId, status);
+    loadDynamicData();
   };
 
-  const handleUpdateLabOrderStatus = (labOrderId: string, status: LabOrderRecord["status"]) => {
+  const handleUpdateLabOrderStatus = async (labOrderId: string, status: LabOrderRecord["status"]) => {
     setLabOrders((prev) =>
       prev.map((l) => (l.id === labOrderId ? { ...l, status } : l))
     );
+    await fetch("/api/lab-orders", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: labOrderId, status }),
+    });
+    loadDynamicData();
   };
 
-  const handleUpdateUltrasoundOrderStatus = (usOrderId: string, status: UltrasoundOrderRecord["status"]) => {
+  const handleUpdateUltrasoundOrderStatus = async (usOrderId: string, status: UltrasoundOrderRecord["status"]) => {
     setUltrasoundOrders((prev) =>
       prev.map((u) => (u.id === usOrderId ? { ...u, status } : u))
     );
+    await fetch("/api/ultrasound-orders", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: usOrderId, status }),
+    });
+    loadDynamicData();
   };
 
   // If loading session state from localStorage
