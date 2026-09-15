@@ -25,27 +25,26 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    if (!body.mrNumber || !body.fullName || !body.phone) {
+    if (!body.fullName || !body.phone) {
       return NextResponse.json(
-        { error: "MR Number, Full Name, and Phone are required." },
+        { error: "Full Name and Phone are required." },
         { status: 400 }
       );
     }
 
     await connectToProductionDatabase();
 
-    const existing = await patientRepository.findByMrNumber(body.mrNumber);
+    // Generate unique MR Number if missing or if passed mrNumber already exists
+    let mrNumber = body.mrNumber || `MR-${Date.now().toString().slice(-6)}`;
+    const existing = await patientRepository.findByMrNumber(mrNumber);
     if (existing) {
-      return NextResponse.json(
-        { error: `Patient with MR Number ${body.mrNumber} already exists.` },
-        { status: 400 }
-      );
+      mrNumber = `MR-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
     }
 
     const dummyUserObjectId = new mongoose.Types.ObjectId();
 
     const newPatient = await patientRepository.createPatient({
-      mrNumber: body.mrNumber,
+      mrNumber,
       fullName: body.fullName,
       fatherHusbandName: body.fatherOrHusbandName || body.fatherHusbandName || "",
       age: Number(body.age) || 30,
@@ -56,6 +55,8 @@ export async function POST(req: Request) {
       bloodGroup: body.bloodGroup || "UNKNOWN",
       createdBy: dummyUserObjectId,
     });
+
+    console.log(`[MongoDB Success] Patient ${newPatient.fullName} (${newPatient.mrNumber}) saved to Atlas!`);
 
     return NextResponse.json(
       { message: "Patient registered successfully", patient: newPatient },

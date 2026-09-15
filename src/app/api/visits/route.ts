@@ -36,14 +36,21 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    if (!body.visitNumber || !body.patientId || !body.consultantId) {
+    if (!body.patientId || !body.consultantId) {
       return NextResponse.json(
-        { error: "Visit Number, Patient ID, and Consultant ID are required." },
+        { error: "Patient ID and Consultant ID are required." },
         { status: 400 }
       );
     }
 
     await connectToProductionDatabase();
+
+    // Auto-generate unique visitNumber if missing or duplicate
+    let visitNumber = body.visitNumber || `VIS-${Date.now().toString().slice(-6)}`;
+    const existing = await visitRepository.findByVisitNumber(visitNumber);
+    if (existing) {
+      visitNumber = `VIS-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
+    }
 
     const patientObjectId = mongoose.Types.ObjectId.isValid(body.patientId)
       ? new mongoose.Types.ObjectId(body.patientId)
@@ -59,7 +66,7 @@ export async function POST(req: Request) {
     const received = Number(body.netCollectedAmount) || Number(body.amountReceived) || fee;
 
     const newVisit = await visitRepository.createVisit({
-      visitNumber: body.visitNumber,
+      visitNumber,
       patientId: patientObjectId,
       consultantId: consultantObjectId,
       department: body.department || "OPD Reception",
@@ -81,13 +88,15 @@ export async function POST(req: Request) {
         department: "OPD Reception",
         amount: received,
         paymentMethod: "CASH",
-        description: `OPD Fee collected for visit ${body.visitNumber}`,
+        description: `OPD Fee collected for visit ${visitNumber}`,
         patientId: patientObjectId,
         visitId: newVisit._id as mongoose.Types.ObjectId,
         createdById: receptionistObjectId,
         transactionDate: new Date(),
       });
     }
+
+    console.log(`[MongoDB Success] Visit ${visitNumber} saved to Atlas!`);
 
     return NextResponse.json(
       { message: "Visit created successfully", visit: newVisit },
@@ -96,7 +105,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("[Visits API POST Error]:", error);
     return NextResponse.json(
-      { error: "Failed to create patient visit." },
+      { error: `Failed to create patient visit: ${error.message}` },
       { status: 500 }
     );
   }

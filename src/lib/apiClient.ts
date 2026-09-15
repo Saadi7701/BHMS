@@ -11,7 +11,7 @@ import {
 export async function fetchPatientsFromApi(): Promise<PatientRecord[]> {
   try {
     const res = await fetch("/api/patients");
-    if (!res.ok) throw new Error("API returned non-200 status");
+    if (!res.ok) throw new Error(`API returned status ${res.status}`);
     const data = await res.json();
     if (data.patients && Array.isArray(data.patients)) {
       return data.patients.map((p: any) => ({
@@ -31,8 +31,8 @@ export async function fetchPatientsFromApi(): Promise<PatientRecord[]> {
       }));
     }
     return [];
-  } catch (err) {
-    console.warn("[API Client] Error fetching patients:", err);
+  } catch (err: any) {
+    console.warn("[API Client] Error fetching patients:", err.message);
     return [];
   }
 }
@@ -44,9 +44,21 @@ export async function createPatientApi(patient: PatientRecord): Promise<boolean>
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patient),
     });
-    return res.ok;
-  } catch (err) {
-    console.warn("[API Client] Error saving patient to API:", err);
+    const data = await res.json();
+    if (!res.ok) {
+      console.error("[API Client Error] Save patient failed:", data.error);
+      if (typeof window !== "undefined") {
+        alert(`Database Save Error: ${data.error || "Failed to save patient to MongoDB"}`);
+      }
+      return false;
+    }
+    console.log("[API Client Success] Patient saved to MongoDB Atlas:", data.patient);
+    return true;
+  } catch (err: any) {
+    console.error("[API Client Error] Save patient exception:", err.message);
+    if (typeof window !== "undefined") {
+      alert(`Database Network Error: ${err.message}`);
+    }
     return false;
   }
 }
@@ -54,7 +66,7 @@ export async function createPatientApi(patient: PatientRecord): Promise<boolean>
 export async function fetchVisitsFromApi(): Promise<VisitRecord[]> {
   try {
     const res = await fetch("/api/visits");
-    if (!res.ok) throw new Error("API returned non-200 status");
+    if (!res.ok) throw new Error(`API returned status ${res.status}`);
     const data = await res.json();
     if (data.visits && Array.isArray(data.visits)) {
       return data.visits.map((v: any) => ({
@@ -81,8 +93,8 @@ export async function fetchVisitsFromApi(): Promise<VisitRecord[]> {
       }));
     }
     return [];
-  } catch (err) {
-    console.warn("[API Client] Error fetching visits:", err);
+  } catch (err: any) {
+    console.warn("[API Client] Error fetching visits:", err.message);
     return [];
   }
 }
@@ -94,9 +106,18 @@ export async function createVisitApi(visit: VisitRecord): Promise<boolean> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(visit),
     });
-    return res.ok;
-  } catch (err) {
-    console.warn("[API Client] Error creating visit via API:", err);
+    const data = await res.json();
+    if (!res.ok) {
+      console.error("[API Client Error] Create visit failed:", data.error);
+      if (typeof window !== "undefined") {
+        alert(`Database Visit Error: ${data.error || "Failed to save visit"}`);
+      }
+      return false;
+    }
+    console.log("[API Client Success] Visit saved to MongoDB Atlas:", data.visit);
+    return true;
+  } catch (err: any) {
+    console.error("[API Client Error] Create visit exception:", err.message);
     return false;
   }
 }
@@ -104,7 +125,7 @@ export async function createVisitApi(visit: VisitRecord): Promise<boolean> {
 export async function fetchLabOrdersFromApi(): Promise<LabOrderRecord[]> {
   try {
     const res = await fetch("/api/lab-orders");
-    if (!res.ok) throw new Error("API returned non-200 status");
+    if (!res.ok) throw new Error(`API returned status ${res.status}`);
     const data = await res.json();
     if (data.labOrders && Array.isArray(data.labOrders)) {
       return data.labOrders.map((l: any) => ({
@@ -128,8 +149,8 @@ export async function fetchLabOrdersFromApi(): Promise<LabOrderRecord[]> {
       }));
     }
     return [];
-  } catch (err) {
-    console.warn("[API Client] Error fetching lab orders:", err);
+  } catch (err: any) {
+    console.warn("[API Client] Error fetching lab orders:", err.message);
     return [];
   }
 }
@@ -141,9 +162,14 @@ export async function createLabOrderApi(order: LabOrderRecord): Promise<boolean>
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(order),
     });
-    return res.ok;
-  } catch (err) {
-    console.warn("[API Client] Error creating lab order via API:", err);
+    const data = await res.json();
+    if (!res.ok) {
+      console.error("[API Client Error] Lab order failed:", data.error);
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.error("[API Client Error] Lab order exception:", err.message);
     return false;
   }
 }
@@ -151,7 +177,7 @@ export async function createLabOrderApi(order: LabOrderRecord): Promise<boolean>
 export async function fetchUltrasoundOrdersFromApi(): Promise<UltrasoundOrderRecord[]> {
   try {
     const res = await fetch("/api/ultrasound-orders");
-    if (!res.ok) throw new Error("API returned non-200 status");
+    if (!res.ok) throw new Error(`API returned status ${res.status}`);
     const data = await res.json();
     if (data.ultrasoundOrders && Array.isArray(data.ultrasoundOrders)) {
       return data.ultrasoundOrders.map((u: any) => ({
@@ -174,8 +200,8 @@ export async function fetchUltrasoundOrdersFromApi(): Promise<UltrasoundOrderRec
       }));
     }
     return [];
-  } catch (err) {
-    console.warn("[API Client] Error fetching ultrasound orders:", err);
+  } catch (err: any) {
+    console.warn("[API Client] Error fetching ultrasound orders:", err.message);
     return [];
   }
 }
@@ -187,9 +213,10 @@ export async function createUltrasoundOrderApi(order: UltrasoundOrderRecord): Pr
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(order),
     });
+    const data = await res.json();
     return res.ok;
-  } catch (err) {
-    console.warn("[API Client] Error creating ultrasound order via API:", err);
+  } catch (err: any) {
+    console.error("[API Client Error] Ultrasound order exception:", err.message);
     return false;
   }
 }
@@ -197,7 +224,7 @@ export async function createUltrasoundOrderApi(order: UltrasoundOrderRecord): Pr
 export async function fetchPrescriptionsFromApi(): Promise<PrescriptionRecord[]> {
   try {
     const res = await fetch("/api/prescriptions");
-    if (!res.ok) throw new Error("API returned non-200 status");
+    if (!res.ok) throw new Error(`API returned status ${res.status}`);
     const data = await res.json();
     if (data.prescriptions && Array.isArray(data.prescriptions)) {
       return data.prescriptions.map((p: any) => ({
@@ -224,8 +251,8 @@ export async function fetchPrescriptionsFromApi(): Promise<PrescriptionRecord[]>
       }));
     }
     return [];
-  } catch (err) {
-    console.warn("[API Client] Error fetching prescriptions:", err);
+  } catch (err: any) {
+    console.warn("[API Client] Error fetching prescriptions:", err.message);
     return [];
   }
 }
@@ -237,9 +264,10 @@ export async function createPrescriptionApi(prescription: PrescriptionRecord): P
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(prescription),
     });
+    const data = await res.json();
     return res.ok;
-  } catch (err) {
-    console.warn("[API Client] Error creating prescription via API:", err);
+  } catch (err: any) {
+    console.error("[API Client Error] Create prescription exception:", err.message);
     return false;
   }
 }
@@ -247,7 +275,7 @@ export async function createPrescriptionApi(prescription: PrescriptionRecord): P
 export async function fetchMedicinesFromApi(): Promise<MedicineRecord[]> {
   try {
     const res = await fetch("/api/medicines");
-    if (!res.ok) throw new Error("API returned non-200 status");
+    if (!res.ok) throw new Error(`API returned status ${res.status}`);
     const data = await res.json();
     if (data.medicines && Array.isArray(data.medicines)) {
       return data.medicines.map((m: any) => ({
@@ -264,8 +292,8 @@ export async function fetchMedicinesFromApi(): Promise<MedicineRecord[]> {
       }));
     }
     return [];
-  } catch (err) {
-    console.warn("[API Client] Error fetching medicines:", err);
+  } catch (err: any) {
+    console.warn("[API Client] Error fetching medicines:", err.message);
     return [];
   }
 }
@@ -273,7 +301,7 @@ export async function fetchMedicinesFromApi(): Promise<MedicineRecord[]> {
 export async function fetchCashTransactionsFromApi(): Promise<CashTransactionRecord[]> {
   try {
     const res = await fetch("/api/cash");
-    if (!res.ok) throw new Error("API returned non-200 status");
+    if (!res.ok) throw new Error(`API returned status ${res.status}`);
     const data = await res.json();
     if (data.transactions && Array.isArray(data.transactions)) {
       return data.transactions.map((t: any) => ({
@@ -293,8 +321,8 @@ export async function fetchCashTransactionsFromApi(): Promise<CashTransactionRec
       }));
     }
     return [];
-  } catch (err) {
-    console.warn("[API Client] Error fetching cash transactions:", err);
+  } catch (err: any) {
+    console.warn("[API Client] Error fetching cash transactions:", err.message);
     return [];
   }
 }

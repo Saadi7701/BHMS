@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const orderNumber = body.orderNumber || body.labOrderNumber || `LAB-${Date.now().toString().slice(-6)}`;
+    let orderNumber = body.orderNumber || body.labOrderNumber || `LAB-${Date.now().toString().slice(-6)}`;
     if (!body.patientId || !body.testName) {
       return NextResponse.json(
         { error: "Patient ID and Test Name are required." },
@@ -42,6 +42,11 @@ export async function POST(req: Request) {
     }
 
     await connectToProductionDatabase();
+
+    const existing = await LabOrderModel.findOne({ orderNumber }).exec();
+    if (existing) {
+      orderNumber = `LAB-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
+    }
 
     const patientObjectId = mongoose.Types.ObjectId.isValid(body.patientId)
       ? new mongoose.Types.ObjectId(body.patientId)
