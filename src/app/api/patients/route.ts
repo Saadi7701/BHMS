@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectToProductionDatabase } from "@/lib/mongodb";
 import { patientRepository } from "@/repositories/PatientRepository";
+import mongoose from "mongoose";
 
 export async function GET(req: Request) {
   try {
@@ -41,16 +42,19 @@ export async function POST(req: Request) {
       );
     }
 
+    const dummyUserObjectId = new mongoose.Types.ObjectId();
+
     const newPatient = await patientRepository.createPatient({
       mrNumber: body.mrNumber,
       fullName: body.fullName,
       fatherHusbandName: body.fatherOrHusbandName || body.fatherHusbandName || "",
-      age: Number(body.age) || 0,
+      age: Number(body.age) || 30,
       gender: body.gender || "MALE",
       phone: body.phone,
-      cnic: body.cnic || undefined,
+      cnic: body.cnic && body.cnic.trim() ? body.cnic.trim() : undefined,
       address: body.address || "",
       bloodGroup: body.bloodGroup || "UNKNOWN",
+      createdBy: dummyUserObjectId,
     });
 
     return NextResponse.json(
@@ -60,7 +64,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("[Patients API POST Error]:", error);
     return NextResponse.json(
-      { error: "Failed to create patient record." },
+      { error: `Failed to create patient record: ${error.message}` },
       { status: 500 }
     );
   }

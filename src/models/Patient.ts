@@ -30,11 +30,11 @@ const PatientSchema: Schema<IPatient> = new Schema(
     age: { type: Number, required: true },
     phone: { type: String, required: true, index: true },
     address: { type: String },
-    cnic: { type: String, unique: true, sparse: true, trim: true },
+    cnic: { type: String, trim: true },
     emergencyContact: { type: String },
     bloodGroup: { type: String },
     notes: { type: String },
-    createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );
