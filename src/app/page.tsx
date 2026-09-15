@@ -60,14 +60,14 @@ export default function Home() {
   const [isInitializing, setIsInitializing] = useState(true);
 
   // Master Dynamic Data State
-  const [patients, setPatients] = useState<PatientRecord[]>(INITIAL_PATIENTS);
-  const [visits, setVisits] = useState<VisitRecord[]>(INITIAL_VISITS);
-  const [admissions, setAdmissions] = useState<AdmissionRecord[]>(INITIAL_ADMISSIONS);
-  const [prescriptions, setPrescriptions] = useState<PrescriptionRecord[]>(INITIAL_PRESCRIPTIONS);
-  const [labOrders, setLabOrders] = useState<LabOrderRecord[]>(INITIAL_LAB_ORDERS);
-  const [ultrasoundOrders, setUltrasoundOrders] = useState<UltrasoundOrderRecord[]>(INITIAL_ULTRASOUND_ORDERS);
-  const [medicines, setMedicines] = useState<MedicineRecord[]>(INITIAL_MEDICINES);
-  const [cashTransactions, setCashTransactions] = useState<CashTransactionRecord[]>(INITIAL_CASH_TRANSACTIONS);
+  const [patients, setPatients] = useState<PatientRecord[]>([]);
+  const [visits, setVisits] = useState<VisitRecord[]>([]);
+  const [admissions, setAdmissions] = useState<AdmissionRecord[]>([]);
+  const [prescriptions, setPrescriptions] = useState<PrescriptionRecord[]>([]);
+  const [labOrders, setLabOrders] = useState<LabOrderRecord[]>([]);
+  const [ultrasoundOrders, setUltrasoundOrders] = useState<UltrasoundOrderRecord[]>([]);
+  const [medicines, setMedicines] = useState<MedicineRecord[]>([]);
+  const [cashTransactions, setCashTransactions] = useState<CashTransactionRecord[]>([]);
   const [consultants, setConsultants] = useState<ConsultantUser[]>(INITIAL_CONSULTANTS);
 
   // Initialize Auth Session on mount
