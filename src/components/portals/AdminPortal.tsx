@@ -763,7 +763,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               title="Daily Total Patients"
-              value={dailySummaryRows.reduce((acc, r) => acc + r.totalPatientsCount, visits.length || 0)}
+              value={dailySummaryRows.length > 0 ? dailySummaryRows.reduce((acc, r) => acc + r.totalPatientsCount, 0) : visits.length}
               subtitle="Total Encounters Processed"
               icon={Grid}
               iconBg="bg-purple-500/10 text-purple-600 dark:text-purple-400"
