@@ -30,7 +30,6 @@ const PRESET_USERS = [
     role: "ADMIN" as const,
     label: "Admin",
     username: "admin",
-    pass: "Admin!2026",
     icon: Shield,
     color: "from-purple-600 to-indigo-600",
     badge: "Full System Control",
@@ -39,7 +38,6 @@ const PRESET_USERS = [
     role: "RECEPTIONIST" as const,
     label: "Receptionist",
     username: "receptionist1",
-    pass: "Recep@1",
     icon: Users,
     color: "from-blue-600 to-cyan-600",
     badge: "Patient OPD & Billing",
@@ -48,7 +46,6 @@ const PRESET_USERS = [
     role: "CONSULTANT" as const,
     label: "Consultant",
     username: "dr_bilal",
-    pass: "Bilal@1",
     icon: Stethoscope,
     color: "from-emerald-600 to-teal-600",
     badge: "EMR & Prescriptions",
@@ -57,7 +54,6 @@ const PRESET_USERS = [
     role: "LAB_STAFF" as const,
     label: "Laboratory",
     username: "lab_tech1",
-    pass: "LabTech",
     icon: TestTube,
     color: "from-amber-600 to-orange-600",
     badge: "Pathology Tests",
@@ -66,7 +62,6 @@ const PRESET_USERS = [
     role: "ULTRASOUND_STAFF" as const,
     label: "Ultrasound",
     username: "ultrasound_tech1",
-    pass: "UltraS1",
     icon: Radio,
     color: "from-rose-600 to-pink-600",
     badge: "Imaging & Scans",
@@ -75,7 +70,6 @@ const PRESET_USERS = [
     role: "PHARMACY_STAFF" as const,
     label: "Pharmacy",
     username: "pharmacist1",
-    pass: "Pharma1",
     icon: Pill,
     color: "from-cyan-600 to-blue-600",
     badge: "Inventory & Meds",
@@ -83,16 +77,16 @@ const PRESET_USERS = [
 ];
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("Admin!2026");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("admin");
+  const [activeTab, setActiveTab] = useState<string>("");
 
   const selectPreset = (preset: (typeof PRESET_USERS)[0]) => {
     setUsername(preset.username);
-    setPassword(preset.pass);
+    setPassword("");
     setActiveTab(preset.username);
     setErrorMsg(null);
   };
@@ -133,37 +127,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
       onLoginSuccess(userSession);
     } catch (err: any) {
-      console.warn("API Login failed, testing offline mock credentials:", err.message);
-
-      // Fallback check against preset users if API is unreachable during initial load
-      const matched = PRESET_USERS.find(
-        (u) => u.username.toLowerCase() === username.trim().toLowerCase() && u.pass === password
-      );
-
-      if (matched) {
-        const fallbackUser: AuthSessionUser = {
-          id: `usr-${matched.username}`,
-          username: matched.username,
-          fullName:
-            matched.role === "ADMIN"
-              ? "System Admin"
-              : matched.role === "CONSULTANT"
-              ? "Dr. Bilal Ahmad"
-              : matched.role === "RECEPTIONIST"
-              ? "Ayesha Khan"
-              : matched.role === "LAB_STAFF"
-              ? "Muhammad Usman"
-              : matched.role === "ULTRASOUND_STAFF"
-              ? "Dr. Kamran Raza"
-              : "Zainab Bibi",
-          role: matched.role,
-          portal: roleToPortal(matched.role),
-          token: "mock-fallback-token",
-        };
-        onLoginSuccess(fallbackUser);
-      } else {
-        setErrorMsg(err.message || "Invalid credentials. Please verify username and password.");
-      }
+      setErrorMsg(err.message || "Invalid credentials. Please verify username and password.");
     } finally {
       setLoading(false);
     }

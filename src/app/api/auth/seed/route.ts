@@ -82,14 +82,6 @@ async function seedDefaultAccounts() {
           isActive: true,
         });
         created.push(acc.username);
-      } else {
-        // Check if passwordHash needs refresh
-        const isCurrentPassValid = await bcrypt.compare(acc.plainPassword, existing.passwordHash);
-        if (!isCurrentPassValid) {
-          existing.passwordHash = await bcrypt.hash(acc.plainPassword, 10);
-          await existing.save();
-          updated.push(acc.username);
-        }
       }
     }
 

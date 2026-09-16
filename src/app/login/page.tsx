@@ -25,8 +25,6 @@ const PORTAL_LINKS = [
     icon: Shield,
     color: "from-purple-600 to-indigo-600",
     badge: "Full System Control",
-    defaultUser: "admin",
-    defaultPass: "Admin!2026",
     description: "Manage users, change portal passwords, financial cash ledger, audit logs.",
   },
   {
@@ -37,8 +35,6 @@ const PORTAL_LINKS = [
     icon: Users,
     color: "from-blue-600 to-cyan-600",
     badge: "Patient OPD & Billing",
-    defaultUser: "receptionist1",
-    defaultPass: "Recep@1",
     description: "Register new patients, issue OPD tokens, collects fees & admit patients.",
   },
   {
@@ -49,8 +45,6 @@ const PORTAL_LINKS = [
     icon: Stethoscope,
     color: "from-emerald-600 to-teal-600",
     badge: "EMR & Prescriptions",
-    defaultUser: "dr_bilal",
-    defaultPass: "Bilal@1",
     description: "View queue, diagnose, issue e-prescriptions, order lab & ultrasound tests.",
   },
   {
@@ -61,8 +55,6 @@ const PORTAL_LINKS = [
     icon: TestTube,
     color: "from-amber-600 to-orange-600",
     badge: "Pathology Tests",
-    defaultUser: "lab_tech1",
-    defaultPass: "LabTech",
     description: "Process diagnostic orders, upload PDF lab reports & update sample status.",
   },
   {
@@ -73,8 +65,6 @@ const PORTAL_LINKS = [
     icon: Radio,
     color: "from-rose-600 to-pink-600",
     badge: "Imaging & Scans",
-    defaultUser: "ultrasound_tech1",
-    defaultPass: "UltraS1",
     description: "Ultrasound imaging queue, record sonology findings & attach scan files.",
   },
   {
@@ -85,8 +75,6 @@ const PORTAL_LINKS = [
     icon: Pill,
     color: "from-cyan-600 to-blue-600",
     badge: "Inventory & Meds",
-    defaultUser: "pharmacist1",
-    defaultPass: "Pharma1",
     description: "Fulfill doctor prescriptions, dispense medicines & manage stock batches.",
   },
 ];
@@ -163,12 +151,6 @@ export default function LoginHubPage() {
                   <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
                     {portal.description}
                   </p>
-
-                  <div className="mt-4 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] font-mono text-slate-400 space-y-0.5">
-                    <div className="text-[10px] font-sans font-bold text-slate-500 uppercase">Default Account</div>
-                    <div className="text-brand-400 font-bold">User: {portal.defaultUser}</div>
-                    <div className="text-slate-500 text-[10px]">Pass: {portal.defaultPass}</div>
-                  </div>
                 </div>
 
                 <div className="mt-5 pt-4 border-t border-slate-800/80 flex items-center gap-2">

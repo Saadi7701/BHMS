@@ -36,8 +36,6 @@ interface PortalConfig {
   title: string;
   subtitle: string;
   role: "ADMIN" | "RECEPTIONIST" | "CONSULTANT" | "LAB_STAFF" | "ULTRASOUND_STAFF" | "PHARMACY_STAFF";
-  defaultUsername: string;
-  defaultPass: string;
   icon: any;
   color: string;
   gradientBg: string;
@@ -51,8 +49,6 @@ export const PORTAL_CONFIGS: Record<PortalType, PortalConfig> = {
     title: "System Administrator Portal Login",
     subtitle: "Full System Control, Master Cash Ledger & Password Access",
     role: "ADMIN",
-    defaultUsername: "admin",
-    defaultPass: "Admin!2026",
     icon: Shield,
     color: "from-purple-600 to-indigo-600",
     gradientBg: "from-purple-950/40 via-slate-950 to-slate-950",
@@ -64,8 +60,6 @@ export const PORTAL_CONFIGS: Record<PortalType, PortalConfig> = {
     title: "Front Desk & Receptionist Portal Login",
     subtitle: "Patient Registration, OPD Ticketing & Cash Collection",
     role: "RECEPTIONIST",
-    defaultUsername: "receptionist1",
-    defaultPass: "Recep@1",
     icon: Users,
     color: "from-blue-600 to-cyan-600",
     gradientBg: "from-blue-950/40 via-slate-950 to-slate-950",
@@ -77,8 +71,6 @@ export const PORTAL_CONFIGS: Record<PortalType, PortalConfig> = {
     title: "Consultant Doctor EMR Portal Login",
     subtitle: "Digital Prescriptions, EMR Records & Lab/Ultrasound Requests",
     role: "CONSULTANT",
-    defaultUsername: "dr_bilal",
-    defaultPass: "Bilal@1",
     icon: Stethoscope,
     color: "from-emerald-600 to-teal-600",
     gradientBg: "from-emerald-950/40 via-slate-950 to-slate-950",
@@ -90,8 +82,6 @@ export const PORTAL_CONFIGS: Record<PortalType, PortalConfig> = {
     title: "Pathology & Laboratory Portal Login",
     subtitle: "Pathology Orders, Result Processing & Report Publishing",
     role: "LAB_STAFF",
-    defaultUsername: "lab_tech1",
-    defaultPass: "LabTech",
     icon: TestTube,
     color: "from-amber-600 to-orange-600",
     gradientBg: "from-amber-950/40 via-slate-950 to-slate-950",
@@ -103,8 +93,6 @@ export const PORTAL_CONFIGS: Record<PortalType, PortalConfig> = {
     title: "Diagnostic Imaging & Ultrasound Portal Login",
     subtitle: "Sonology Scans, Imaging Records & Report Generation",
     role: "ULTRASOUND_STAFF",
-    defaultUsername: "ultrasound_tech1",
-    defaultPass: "UltraS1",
     icon: Radio,
     color: "from-rose-600 to-pink-600",
     gradientBg: "from-rose-950/40 via-slate-950 to-slate-950",
@@ -116,8 +104,6 @@ export const PORTAL_CONFIGS: Record<PortalType, PortalConfig> = {
     title: "Hospital Pharmacy & Medicine Portal Login",
     subtitle: "Prescription Dispensing & Stock Inventory Transactions",
     role: "PHARMACY_STAFF",
-    defaultUsername: "pharmacist1",
-    defaultPass: "Pharma1",
     icon: Pill,
     color: "from-cyan-600 to-blue-600",
     gradientBg: "from-cyan-950/40 via-slate-950 to-slate-950",
@@ -135,8 +121,8 @@ export const PortalLoginPage: React.FC<PortalLoginPageProps> = ({ portalType }) 
   const config = PORTAL_CONFIGS[portalType] || PORTAL_CONFIGS.admin;
   const PortalIcon = config.icon;
 
-  const [username, setUsername] = useState(config.defaultUsername);
-  const [password, setPassword] = useState(config.defaultPass);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -152,7 +138,7 @@ export const PortalLoginPage: React.FC<PortalLoginPageProps> = ({ portalType }) 
     setErrorMsg(null);
 
     try {
-      // 1. Try real API authentication against MongoDB
+      // Authenticate against MongoDB database
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -178,38 +164,7 @@ export const PortalLoginPage: React.FC<PortalLoginPageProps> = ({ portalType }) 
       setAuthSession(userSession);
       router.push(config.destinationUrl);
     } catch (err: any) {
-      console.warn("API login failed, evaluating fallback credentials:", err.message);
-
-      // Verify if fallback matches default credentials
-      if (
-        username.trim().toLowerCase() === config.defaultUsername.toLowerCase() &&
-        password === config.defaultPass
-      ) {
-        const fallbackSession: AuthSessionUser = {
-          id: `usr-${config.defaultUsername}`,
-          username: config.defaultUsername,
-          fullName:
-            config.role === "ADMIN"
-              ? "System Admin"
-              : config.role === "CONSULTANT"
-              ? "Dr. Bilal Ahmad"
-              : config.role === "RECEPTIONIST"
-              ? "Ayesha Khan"
-              : config.role === "LAB_STAFF"
-              ? "Muhammad Usman"
-              : config.role === "ULTRASOUND_STAFF"
-              ? "Dr. Kamran Raza"
-              : "Zainab Bibi",
-          role: config.role,
-          portal: roleToPortal(config.role),
-          token: "session-fallback-token",
-        };
-
-        setAuthSession(fallbackSession);
-        router.push(config.destinationUrl);
-      } else {
-        setErrorMsg(err.message || "Invalid credentials for this portal.");
-      }
+      setErrorMsg(err.message || "Invalid credentials for this portal.");
     } finally {
       setLoading(false);
     }
@@ -268,26 +223,6 @@ export const PortalLoginPage: React.FC<PortalLoginPageProps> = ({ portalType }) 
             <p className="text-xs text-slate-400 mt-1">
               {config.subtitle}
             </p>
-          </div>
-
-          {/* Quick Default Credentials Banner */}
-          <div className="mb-5 p-3 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs text-slate-300 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Default Credentials</span>
-              <span className="font-mono font-bold text-brand-400">{config.defaultUsername}</span>
-              <span className="text-slate-600 font-mono text-[10px] ml-2">({config.defaultPass})</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setUsername(config.defaultUsername);
-                setPassword(config.defaultPass);
-                setErrorMsg(null);
-              }}
-              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold border border-slate-700 transition-all"
-            >
-              Fill Default
-            </button>
           </div>
 
           {errorMsg && (

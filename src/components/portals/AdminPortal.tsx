@@ -23,6 +23,7 @@ import {
   Layers,
   Filter,
   Grid,
+  Trash2,
 } from "lucide-react";
 import { StatCard } from "../ui/StatCard";
 import { Badge } from "../ui/Badge";
@@ -96,16 +97,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [expenseCategory, setExpenseCategory] = useState("Hospital Supplies");
   const [expenseDept, setExpenseDept] = useState("Administration");
-  const [expenseAmount, setExpenseAmount] = useState("3500");
-  const [expenseDesc, setExpenseDesc] = useState("Purchased ECG roll paper & gloves");
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseDesc, setExpenseDesc] = useState("");
 
   // Reversal Modal State
   const [selectedTxnForReversal, setSelectedTxnForReversal] =
     useState<CashTransactionRecord | null>(null);
-  const [reversalReason, setReversalReason] = useState("Duplicate entry correction");
+  const [reversalReason, setReversalReason] = useState("");
 
   // Cash Closing Form State
-  const [actualCashInput, setActualCashInput] = useState("15300");
+  const [actualCashInput, setActualCashInput] = useState("");
   const [isClosedToday, setIsClosedToday] = useState(false);
 
   // Add Consultant Form State
@@ -113,11 +114,35 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [newFullName, setNewFullName] = useState("");
   const [newSpecialty, setNewSpecialty] = useState("");
   const [newDepartment, setNewDepartment] = useState("Cardiology");
-  const [newQualification, setNewQualification] = useState("MBBS, FCPS");
-  const [newRoomNumber, setNewRoomNumber] = useState("OPD-105");
-  const [newConsultationFee, setNewConsultationFee] = useState("2000");
+  const [newQualification, setNewQualification] = useState("");
+  const [newRoomNumber, setNewRoomNumber] = useState("");
+  const [newConsultationFee, setNewConsultationFee] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+
+  // Purge Test Data State
+  const [isPurgeModalOpen, setIsPurgeModalOpen] = useState(false);
+  const [isPurging, setIsPurging] = useState(false);
+
+  const handlePurgeData = async () => {
+    setIsPurging(true);
+    try {
+      const res = await fetch("/api/admin/clear-data", {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to purge database records.");
+      }
+      alert("All test patients, visits, prescriptions, orders, and financial transactions have been purged successfully!");
+      setIsPurgeModalOpen(false);
+      window.location.reload();
+    } catch (err: any) {
+      alert(err.message || "Failed to purge test data.");
+    } finally {
+      setIsPurging(false);
+    }
+  };
 
   // Admin Portal User Password Management State
   const [dbUsers, setDbUsers] = useState<any[]>([]);
@@ -428,6 +453,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsPurgeModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs border border-rose-500/40 transition-all shadow-lg"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Purge Test / Mock Data</span>
+          </button>
+
           <button
             onClick={() => setIsExpenseModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-600/30"
@@ -1730,6 +1763,57 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* PURGE TEST / MOCK DATA MODAL */}
+      <Modal
+        isOpen={isPurgeModalOpen}
+        onClose={() => !isPurging && setIsPurgeModalOpen(false)}
+        title="Purge Operational Mock Data from MongoDB Atlas"
+      >
+        <div className="space-y-4 text-xs">
+          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 space-y-2">
+            <div className="flex items-center gap-2 font-bold text-sm text-rose-300">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <span>Warning: Irreversible Data Deletion</span>
+            </div>
+            <p>
+              This operation will permanently purge all test patients, visits, OPD tokens, prescriptions, lab test orders, ultrasound scan reports, pharmacy transactions, and cash ledgers from MongoDB Atlas.
+            </p>
+            <p className="font-semibold text-rose-200">
+              User accounts (Admin, Doctors, Receptionists, Pharmacists, Technicians) will remain preserved so you can continue logging in.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+            <button
+              type="button"
+              disabled={isPurging}
+              onClick={() => setIsPurgeModalOpen(false)}
+              className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={isPurging}
+              onClick={handlePurgeData}
+              className="px-6 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30 disabled:opacity-50 flex items-center gap-2"
+            >
+              {isPurging ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>Purging MongoDB...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  <span>Confirm & Purge All Test Data</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
