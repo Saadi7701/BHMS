@@ -1,25 +1,23 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Navbar } from "../components/layout/Navbar";
-import { Sidebar } from "../components/layout/Sidebar";
-import { AdminPortal } from "../components/portals/AdminPortal";
-import { ReceptionistPortal } from "../components/portals/ReceptionistPortal";
-import { ConsultantPortal } from "../components/portals/ConsultantPortal";
-import { LabPortal } from "../components/portals/LabPortal";
-import { UltrasoundPortal } from "../components/portals/UltrasoundPortal";
-import { PharmacyPortal } from "../components/portals/PharmacyPortal";
-import { LoginPage } from "../components/auth/LoginPage";
+import { useRouter } from "next/navigation";
+import { Navbar } from "./Navbar";
+import { Sidebar } from "./Sidebar";
+import { AdminPortal } from "../portals/AdminPortal";
+import { ReceptionistPortal } from "../portals/ReceptionistPortal";
+import { ConsultantPortal } from "../portals/ConsultantPortal";
+import { LabPortal } from "../portals/LabPortal";
+import { UltrasoundPortal } from "../portals/UltrasoundPortal";
+import { PharmacyPortal } from "../portals/PharmacyPortal";
 
 import {
   AuthSessionUser,
   getAuthSession,
-  setAuthSession,
   clearAuthSession,
-} from "../lib/authSession";
+} from "../../lib/authSession";
 
 import {
-  INITIAL_CONSULTANTS,
   PatientRecord,
   VisitRecord,
   AdmissionRecord,
@@ -29,7 +27,7 @@ import {
   MedicineRecord,
   CashTransactionRecord,
   ConsultantUser,
-} from "../lib/mockDataStore";
+} from "../../lib/mockDataStore";
 
 import {
   fetchPatientsFromApi,
@@ -48,14 +46,19 @@ import {
   createMedicineApi,
   fetchCashTransactionsFromApi,
   createCashTransactionApi,
-} from "../lib/apiClient";
+} from "../../lib/apiClient";
 
-export default function Home() {
+interface PortalShellProps {
+  targetPortal: "ADMIN" | "RECEPTIONIST" | "CONSULTANT" | "LABORATORY" | "ULTRASOUND" | "PHARMACY";
+}
+
+export const PortalShell: React.FC<PortalShellProps> = ({ targetPortal }) => {
+  const router = useRouter();
   const [currentUser, setCurrentUser] = useState<AuthSessionUser | null>(null);
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // Master Dynamic Data State (Initially Empty, Populated via API)
+  // Master Dynamic Data State (Initially Empty, Populated via API from MongoDB)
   const [patients, setPatients] = useState<PatientRecord[]>([]);
   const [visits, setVisits] = useState<VisitRecord[]>([]);
   const [admissions, setAdmissions] = useState<AdmissionRecord[]>([]);
@@ -64,53 +67,9 @@ export default function Home() {
   const [ultrasoundOrders, setUltrasoundOrders] = useState<UltrasoundOrderRecord[]>([]);
   const [medicines, setMedicines] = useState<MedicineRecord[]>([]);
   const [cashTransactions, setCashTransactions] = useState<CashTransactionRecord[]>([]);
-  const [consultants, setConsultants] = useState<ConsultantUser[]>(INITIAL_CONSULTANTS);
+  const [consultants, setConsultants] = useState<ConsultantUser[]>([]);
 
-  // Master Data Loading Function
-  const loadDynamicData = useCallback(async () => {
-    try {
-      const [pats, vsts, labs, us, rxs, meds, cash] = await Promise.all([
-        fetchPatientsFromApi(),
-        fetchVisitsFromApi(),
-        fetchLabOrdersFromApi(),
-        fetchUltrasoundOrdersFromApi(),
-        fetchPrescriptionsFromApi(),
-        fetchMedicinesFromApi(),
-        fetchCashTransactionsFromApi(),
-      ]);
-      setPatients(pats);
-      setVisits(vsts);
-      setLabOrders(labs);
-      setUltrasoundOrders(us);
-      setPrescriptions(rxs);
-      setMedicines(meds);
-      setCashTransactions(cash);
-    } catch (err) {
-      console.warn("[Real-time Sync Error]:", err);
-    }
-  }, []);
-
-  // Initialize Auth Session on mount
-  useEffect(() => {
-    const session = getAuthSession();
-    if (session) {
-      setCurrentUser(session);
-      setDefaultTabForPortal(session.portal);
-    }
-    setIsInitializing(false);
-  }, []);
-
-  // Continuous 3-Second Real-Time Database Polling Sync across all portals
-  useEffect(() => {
-    if (currentUser) {
-      loadDynamicData();
-      const interval = setInterval(() => {
-        loadDynamicData();
-      }, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [currentUser, loadDynamicData]);
-
+  // Set Default Active Tab based on Portal
   const setDefaultTabForPortal = (portal: AuthSessionUser["portal"]) => {
     switch (portal) {
       case "ADMIN":
@@ -134,21 +93,63 @@ export default function Home() {
     }
   };
 
-  const handleLoginSuccess = (userSession: AuthSessionUser) => {
-    setAuthSession(userSession);
-    setCurrentUser(userSession);
-    setDefaultTabForPortal(userSession.portal);
-  };
+  // Master Data Loading Function from MongoDB API
+  const loadDynamicData = useCallback(async () => {
+    try {
+      const [pats, vsts, labs, us, rxs, meds, cash] = await Promise.all([
+        fetchPatientsFromApi(),
+        fetchVisitsFromApi(),
+        fetchLabOrdersFromApi(),
+        fetchUltrasoundOrdersFromApi(),
+        fetchPrescriptionsFromApi(),
+        fetchMedicinesFromApi(),
+        fetchCashTransactionsFromApi(),
+      ]);
+      setPatients(pats);
+      setVisits(vsts);
+      setLabOrders(labs);
+      setUltrasoundOrders(us);
+      setPrescriptions(rxs);
+      setMedicines(meds);
+      setCashTransactions(cash);
+    } catch (err) {
+      console.warn("[Real-time Sync Error]:", err);
+    }
+  }, []);
+
+  // Initialize Session
+  useEffect(() => {
+    const session = getAuthSession();
+    if (!session) {
+      router.push(`/login/${targetPortal.toLowerCase()}`);
+      return;
+    }
+
+    setCurrentUser(session);
+    setDefaultTabForPortal(targetPortal);
+    setIsInitializing(false);
+  }, [targetPortal, router]);
+
+  // Continuous 3-Second Real-Time Database Sync with MongoDB
+  useEffect(() => {
+    if (currentUser) {
+      loadDynamicData();
+      const interval = setInterval(() => {
+        loadDynamicData();
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [currentUser, loadDynamicData]);
 
   const handleLogout = () => {
     clearAuthSession();
     setCurrentUser(null);
+    router.push(`/login/${targetPortal.toLowerCase()}`);
   };
 
-  // Real-Time DB Handlers
+  // Real-Time DB Handlers (CRUD operations with zero mock data)
   const handleAddPatient = async (patient: PatientRecord) => {
     setPatients((prev) => [patient, ...prev]);
-    // Map frontend PatientRecord to the shape the API expects
     await createPatientApi({
       ...patient,
       fatherOrHusbandName: patient.fatherHusbandName,
@@ -384,43 +385,32 @@ export default function Home() {
     loadDynamicData();
   };
 
-  // If loading session state from localStorage
   if (isInitializing) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-sans">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-xs font-semibold text-slate-400">Loading Bilal Hospital Portal...</p>
+          <p className="text-xs font-semibold text-slate-400">Loading {targetPortal} Portal...</p>
         </div>
       </div>
     );
   }
 
-  // If NOT logged in, show the Login Directory Hub!
-  if (!currentUser) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
-  }
-
-  // If logged in, render authenticated portal shell!
-  const activePortal = currentUser.portal;
+  if (!currentUser) return null;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-brand-500 selection:text-white transition-colors duration-300">
-      {/* Navigation Header with logged in user profile & logout button */}
       <Navbar currentUser={currentUser} onLogout={handleLogout} />
 
-      {/* Main Body Shell */}
       <div className="flex-1 flex max-w-[1600px] w-full mx-auto">
-        {/* Sidebar */}
         <Sidebar
-          activePortal={activePortal}
+          activePortal={targetPortal}
           activeTab={activeTab}
           onSelectTab={setActiveTab}
         />
 
-        {/* Content Area */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto max-w-full">
-          {activePortal === "ADMIN" && (
+          {targetPortal === "ADMIN" && (
             <AdminPortal
               activeTab={activeTab}
               cashTransactions={cashTransactions}
@@ -433,7 +423,7 @@ export default function Home() {
             />
           )}
 
-          {activePortal === "RECEPTIONIST" && (
+          {targetPortal === "RECEPTIONIST" && (
             <ReceptionistPortal
               activeTab={activeTab}
               patients={patients}
@@ -446,7 +436,7 @@ export default function Home() {
             />
           )}
 
-          {activePortal === "CONSULTANT" && (
+          {targetPortal === "CONSULTANT" && (
             <ConsultantPortal
               activeTab={activeTab}
               visits={visits}
@@ -465,7 +455,7 @@ export default function Home() {
             />
           )}
 
-          {activePortal === "LABORATORY" && (
+          {targetPortal === "LABORATORY" && (
             <LabPortal
               activeTab={activeTab}
               labOrders={labOrders}
@@ -474,7 +464,7 @@ export default function Home() {
             />
           )}
 
-          {activePortal === "ULTRASOUND" && (
+          {targetPortal === "ULTRASOUND" && (
             <UltrasoundPortal
               activeTab={activeTab}
               ultrasoundOrders={ultrasoundOrders}
@@ -483,7 +473,7 @@ export default function Home() {
             />
           )}
 
-          {activePortal === "PHARMACY" && (
+          {targetPortal === "PHARMACY" && (
             <PharmacyPortal
               activeTab={activeTab}
               prescriptions={prescriptions}
@@ -496,4 +486,4 @@ export default function Home() {
       </div>
     </div>
   );
-}
+};

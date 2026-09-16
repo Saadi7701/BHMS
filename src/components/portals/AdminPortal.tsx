@@ -39,6 +39,10 @@ import {
 import {
   BarChart,
   Bar,
+  AreaChart,
+  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -114,6 +118,70 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [newConsultationFee, setNewConsultationFee] = useState("2000");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+
+  // Admin Portal User Password Management State
+  const [dbUsers, setDbUsers] = useState<any[]>([]);
+  const [selectedUserForPassChange, setSelectedUserForPassChange] = useState<any | null>(null);
+  const [adminNewPassword, setAdminNewPassword] = useState("");
+  const [isChangingPass, setIsChangingPass] = useState(false);
+  const [passChangeSuccessMsg, setPassChangeSuccessMsg] = useState<string | null>(null);
+
+  const fetchDbUsers = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/users");
+      if (res.ok) {
+        const data = await res.json();
+        setDbUsers(data.users || []);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch database users:", err);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (activeTab === "users_rbac") {
+      fetchDbUsers();
+    }
+  }, [activeTab, fetchDbUsers]);
+
+  const handleAdminSubmitPasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUserForPassChange || !adminNewPassword.trim()) return;
+
+    setIsChangingPass(true);
+    setPassChangeSuccessMsg(null);
+
+    try {
+      const res = await fetch("/api/users/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: selectedUserForPassChange.id,
+          username: selectedUserForPassChange.username,
+          newPassword: adminNewPassword,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update user password.");
+      }
+
+      setPassChangeSuccessMsg(`Password for '${selectedUserForPassChange.username}' updated successfully in MongoDB Atlas!`);
+      setAdminNewPassword("");
+      setTimeout(() => {
+        setSelectedUserForPassChange(null);
+        setPassChangeSuccessMsg(null);
+      }, 2000);
+
+      fetchDbUsers();
+    } catch (err: any) {
+      alert(err.message || "Failed to change password.");
+    } finally {
+      setIsChangingPass(false);
+    }
+  };
 
   const handleAddConsultantSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -669,133 +737,142 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         </div>
       )}
 
-      {/* TAB 3: EXECUTIVE CHARTS & MAIN DASHBOARD DAILY PATIENTS/CASH TABLE */}
-      {activeTab === "analytics" && (
+      {/* TAB 3: EXECUTIVE CHARTS & DAILY ANALYSIS DASHBOARD (NO TABLE) */}
+      {(activeTab === "analytics" ||
+        activeTab === "overview" ||
+        !["cash_in_table", "cash_out_table", "cash_ledger", "cash_closing", "system_health", "audit_logs", "users_rbac"].includes(activeTab)) && (
         <div className="space-y-6">
-          {/* MAIN DASHBOARD DAILY TOTAL PATIENT & DAILY CASH COLUMN-WISE TABLE */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg p-6 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                  <Grid className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                  <span>Main Dashboard Daily Patient & Daily Cash Summary Table</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Column-wise daily breakdown showing total patient encounters and cash revenue per department.
-                </p>
+          {/* Top Quick Metrics Boxes */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              title="Daily Total Patients"
+              value={dailySummaryRows.reduce((acc, r) => acc + r.totalPatientsCount, visits.length || 0)}
+              subtitle="Total Encounters Processed"
+              icon={Grid}
+              iconBg="bg-purple-500/10 text-purple-600 dark:text-purple-400"
+            />
+            <StatCard
+              title="Daily Total Sales (Income)"
+              value={`Rs. ${finalGrandTotalCashIn.toLocaleString()}`}
+              subtitle="All Department Revenues"
+              icon={TrendingUp}
+              iconBg="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+            />
+            <StatCard
+              title="Daily Total Expenses"
+              value={`Rs. ${totalExpense.toLocaleString()}`}
+              subtitle="Disbursements & Outflows"
+              icon={TrendingDown}
+              iconBg="bg-rose-500/10 text-rose-600 dark:text-rose-400"
+            />
+            <StatCard
+              title="Net Daily Cash Balance"
+              value={`Rs. ${netBalance.toLocaleString()}`}
+              subtitle="Net Revenue After Expenses"
+              icon={Wallet}
+              iconBg="bg-blue-500/10 text-blue-600 dark:text-blue-400"
+            />
+          </div>
+
+          {/* Daily Trend Charts Grid (Sales & Patients) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Chart 1: Daily Revenue & Income Trend */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-500" />
+                    <span>Daily Sales & Revenue Trend (Rs.)</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Daily cash revenue growth across all hospital operations.
+                  </p>
+                </div>
+                <Badge variant="success" size="sm">Revenue Growth</Badge>
               </div>
-              <Badge variant="purple" size="md">
-                Daily Revenue Matrix
-              </Badge>
+
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={
+                      dailySummaryRows.length > 0
+                        ? dailySummaryRows.map((r) => ({ date: r.date, income: r.totalDailyCashIn, net: r.netDailyCash }))
+                        : [{ date: "Today", income: finalGrandTotalCashIn || 5000, net: netBalance || 5000 }]
+                    }
+                  >
+                    <defs>
+                      <linearGradient id="incomeColor" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                    <XAxis dataKey="date" stroke="#888888" fontSize={11} />
+                    <YAxis stroke="#888888" fontSize={11} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#0f172a",
+                        borderColor: "#334155",
+                        borderRadius: "12px",
+                        color: "#ffffff",
+                        fontSize: "12px",
+                      }}
+                      formatter={(val: any) => [`Rs. ${Number(val).toLocaleString()}`, "Daily Revenue"]}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="income"
+                      stroke="#10b981"
+                      strokeWidth={3}
+                      fillOpacity={1}
+                      fill="url(#incomeColor)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-100 dark:bg-slate-800 text-[11px] font-extrabold text-slate-700 dark:text-slate-200 uppercase border-b border-slate-200 dark:border-slate-700">
-                    <th className="py-3.5 px-4">Date</th>
-                    <th className="py-3.5 px-4 text-center bg-purple-500/10 text-purple-600 dark:text-purple-400 font-black">
-                      Daily Total Patients
-                    </th>
-                    <th className="py-3.5 px-4 text-center bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                      Consultant Cash
-                    </th>
-                    <th className="py-3.5 px-4 text-center bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                      Lab Cash
-                    </th>
-                    <th className="py-3.5 px-4 text-center bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
-                      Pharmacy Cash
-                    </th>
-                    <th className="py-3.5 px-4 text-center bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                      Ultrasound Cash
-                    </th>
-                    <th className="py-3.5 px-4 text-center bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                      OT & Gyne Cash
-                    </th>
-                    <th className="py-3.5 px-4 text-right bg-emerald-600/10 text-emerald-700 dark:text-emerald-300 font-black">
-                      Total Daily Cash In
-                    </th>
-                    <th className="py-3.5 px-4 text-right bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold">
-                      Daily Cash Out
-                    </th>
-                    <th className="py-3.5 px-4 text-right bg-slate-200 dark:bg-slate-750 font-black">
-                      Net Daily Balance
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
-                  {dailySummaryRows.map((row) => (
-                    <tr key={row.date} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
-                      <td className="py-3 px-4 font-bold text-slate-900 dark:text-white font-sans">
-                        {row.date}
-                      </td>
-                      <td className="py-3 px-4 text-center font-black text-purple-600 dark:text-purple-400 bg-purple-500/5">
-                        <span className="px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-bold">
-                          {row.totalPatientsCount} Patients
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center text-blue-600 dark:text-blue-400 font-bold">
-                        {row.consultantCash > 0 ? `Rs. ${row.consultantCash.toLocaleString()}` : "-"}
-                      </td>
-                      <td className="py-3 px-4 text-center text-amber-600 dark:text-amber-400 font-bold">
-                        {row.labCash > 0 ? `Rs. ${row.labCash.toLocaleString()}` : "-"}
-                      </td>
-                      <td className="py-3 px-4 text-center text-cyan-600 dark:text-cyan-400 font-bold">
-                        {row.pharmacyCash > 0 ? `Rs. ${row.pharmacyCash.toLocaleString()}` : "-"}
-                      </td>
-                      <td className="py-3 px-4 text-center text-rose-600 dark:text-rose-400 font-bold">
-                        {row.ultrasoundCash > 0 ? `Rs. ${row.ultrasoundCash.toLocaleString()}` : "-"}
-                      </td>
-                      <td className="py-3 px-4 text-center text-emerald-600 dark:text-emerald-400 font-bold">
-                        {row.otGyneCash > 0 ? `Rs. ${row.otGyneCash.toLocaleString()}` : "-"}
-                      </td>
-                      <td className="py-3 px-4 text-right font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/5">
-                        Rs. {row.totalDailyCashIn.toLocaleString()}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-rose-600 dark:text-rose-400">
-                        {row.dailyExpenses > 0 ? `- Rs. ${row.dailyExpenses.toLocaleString()}` : "-"}
-                      </td>
-                      <td className="py-3 px-4 text-right font-black text-slate-900 dark:text-white bg-slate-100/60 dark:bg-slate-800/60">
-                        Rs. {row.netDailyCash.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-slate-100 dark:bg-slate-800 font-mono font-bold text-slate-900 dark:text-white border-t-2 border-slate-300 dark:border-slate-600">
-                    <td className="py-3.5 px-4 font-sans font-extrabold uppercase">
-                      Cumulative Totals:
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-purple-600 dark:text-purple-400 font-black">
-                      {dailySummaryRows.reduce((acc, r) => acc + r.totalPatientsCount, 0)} Patients
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-blue-600 dark:text-blue-400">
-                      Rs. {dailySummaryRows.reduce((acc, r) => acc + r.consultantCash, 0).toLocaleString()}
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-amber-600 dark:text-amber-400">
-                      Rs. {dailySummaryRows.reduce((acc, r) => acc + r.labCash, 0).toLocaleString()}
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-cyan-600 dark:text-cyan-400">
-                      Rs. {dailySummaryRows.reduce((acc, r) => acc + r.pharmacyCash, 0).toLocaleString()}
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-rose-600 dark:text-rose-400">
-                      Rs. {dailySummaryRows.reduce((acc, r) => acc + r.ultrasoundCash, 0).toLocaleString()}
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-emerald-600 dark:text-emerald-400">
-                      Rs. {dailySummaryRows.reduce((acc, r) => acc + r.otGyneCash, 0).toLocaleString()}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-black text-emerald-600 dark:text-emerald-400">
-                      Rs. {dailySummaryRows.reduce((acc, r) => acc + r.totalDailyCashIn, 0).toLocaleString()}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-bold text-rose-600 dark:text-rose-400">
-                      - Rs. {dailySummaryRows.reduce((acc, r) => acc + r.dailyExpenses, 0).toLocaleString()}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-black text-purple-600 dark:text-purple-400">
-                      Rs. {dailySummaryRows.reduce((acc, r) => acc + r.netDailyCash, 0).toLocaleString()}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+            {/* Chart 2: Daily Patient Traffic Trend */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                    <Grid className="w-4 h-4 text-purple-500" />
+                    <span>Daily Patient Traffic & Encounters Trend</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Number of patient visits and encounters recorded daily.
+                  </p>
+                </div>
+                <Badge variant="purple" size="sm">Patient Flow</Badge>
+              </div>
+
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={
+                      dailySummaryRows.length > 0
+                        ? dailySummaryRows.map((r) => ({ date: r.date, count: r.totalPatientsCount }))
+                        : [{ date: "Today", count: visits.length || 1 }]
+                    }
+                  >
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                    <XAxis dataKey="date" stroke="#888888" fontSize={11} />
+                    <YAxis stroke="#888888" fontSize={11} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#0f172a",
+                        borderColor: "#334155",
+                        borderRadius: "12px",
+                        color: "#ffffff",
+                        fontSize: "12px",
+                      }}
+                      formatter={(val: any) => [`${val} Patients`, "Daily Encounters"]}
+                    />
+                    <Bar dataKey="count" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
@@ -1211,41 +1288,164 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
           </div>
 
-          {/* Admin Staff Table */}
-          <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-              <Shield className="w-4 h-4 text-purple-500" />
-              <span>Hospital Administrative & Desk Staff</span>
-            </h4>
+          {/* Admin Master Password Control Section for All Portals */}
+          <div className="space-y-4 pt-6 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-purple-500" />
+                  <span>Portal Credentials & Master Password Management</span>
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Special Admin Override: View all registered portal staff and update passwords dynamically with bcrypt hashing in MongoDB Atlas.
+                </p>
+              </div>
+              <button
+                onClick={fetchDbUsers}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 transition-colors"
+              >
+                Refresh User List
+              </button>
+            </div>
+
             <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-100 dark:bg-slate-800 text-[11px] font-extrabold text-slate-600 dark:text-slate-300 uppercase border-b border-slate-200 dark:border-slate-700">
-                    <th className="py-3 px-4">Staff Member</th>
-                    <th className="py-3 px-4">System Role</th>
-                    <th className="py-3 px-4">Department</th>
-                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3.5 px-4">Portal Staff Member</th>
+                    <th className="py-3.5 px-4">Username</th>
+                    <th className="py-3.5 px-4">Role & Assigned Portal</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4 text-right">Admin Security Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
-                    <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">Admin User</td>
-                    <td className="py-3 px-4"><Badge variant="purple">System Administrator</Badge></td>
-                    <td className="py-3 px-4">IT & Finance</td>
-                    <td className="py-3 px-4"><Badge variant="success">Active</Badge></td>
-                  </tr>
-                  <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
-                    <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">Ayesha Khan</td>
-                    <td className="py-3 px-4"><Badge variant="info">Receptionist</Badge></td>
-                    <td className="py-3 px-4">Front Desk</td>
-                    <td className="py-3 px-4"><Badge variant="success">Active</Badge></td>
-                  </tr>
+                  {dbUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-slate-400 italic">
+                        No portal users found in MongoDB database.
+                      </td>
+                    </tr>
+                  ) : (
+                    dbUsers.map((usr) => (
+                      <tr key={usr.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                        <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                          {usr.fullName}
+                          <span className="block text-[10px] text-slate-400 font-mono font-normal">
+                            {usr.email}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-purple-600 dark:text-purple-400">
+                          {usr.username}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <Badge
+                            variant={
+                              usr.role === "ADMIN"
+                                ? "purple"
+                                : usr.role === "CONSULTANT"
+                                ? "success"
+                                : usr.role === "RECEPTIONIST"
+                                ? "info"
+                                : "warning"
+                            }
+                          >
+                            {usr.role} ({usr.portal})
+                          </Badge>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {usr.isActive ? (
+                            <Badge variant="success" size="sm">Active</Badge>
+                          ) : (
+                            <Badge variant="neutral" size="sm">Disabled</Badge>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <button
+                            onClick={() => {
+                              setSelectedUserForPassChange(usr);
+                              setAdminNewPassword("");
+                              setPassChangeSuccessMsg(null);
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md shadow-purple-600/20 transition-all flex items-center gap-1.5 ml-auto"
+                          >
+                            <Lock className="w-3.5 h-3.5" />
+                            <span>Change Password</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
         </div>
       )}
+
+      {/* Modal: Admin Change Password */}
+      {selectedUserForPassChange && (
+        <Modal
+          isOpen={!!selectedUserForPassChange}
+          onClose={() => setSelectedUserForPassChange(null)}
+          title={`Change Password for ${selectedUserForPassChange.fullName}`}
+          subtitle={`Username: ${selectedUserForPassChange.username} | Role: ${selectedUserForPassChange.role}`}
+          maxWidth="md"
+        >
+          <form onSubmit={handleAdminSubmitPasswordChange} className="space-y-4 text-xs">
+            {passChangeSuccessMsg && (
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{passChangeSuccessMsg}</span>
+              </div>
+            )}
+
+            <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-700 dark:text-purple-300">
+              Admin Access: Set a new password for this portal account. The password will be hashed with bcrypt before saving to MongoDB Atlas.
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                New Password *
+              </label>
+              <input
+                type="password"
+                required
+                minLength={5}
+                placeholder="Enter new password (min 5 characters)"
+                value={adminNewPassword}
+                onChange={(e) => setAdminNewPassword(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 font-mono font-bold text-sm text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setSelectedUserForPassChange(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isChangingPass}
+                className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-600/30 flex items-center gap-2 disabled:opacity-50"
+              >
+                {isChangingPass ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <Lock className="w-4 h-4" />
+                    <span>Save New Password to Database</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
 
 
       {/* Modal: Log Expense */}

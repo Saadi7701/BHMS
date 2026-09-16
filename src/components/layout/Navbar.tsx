@@ -123,7 +123,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onLogout }) => {
           </div>
         </div>
 
-        {/* Center: Active Role Badge (Clean display without dropdown selector) */}
+        {/* Center: Active Role Badge with Direct Portal Links Switcher */}
         <div className="hidden md:flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl border bg-slate-50 dark:bg-slate-800/80 shadow-inner">
           <div className={`p-1.5 rounded-lg border ${portalObj.color}`}>
             <IconComp className="w-4 h-4" />
@@ -132,9 +132,54 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onLogout }) => {
             <div className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider leading-none">
               Authenticated Workspace
             </div>
-            <div className="text-xs font-black text-slate-900 dark:text-white mt-0.5">
-              {portalObj.name}
+            <div className="text-xs font-black text-slate-900 dark:text-white mt-0.5 flex items-center gap-2">
+              <span>{portalObj.name}</span>
             </div>
+          </div>
+
+          <div className="ml-2 pl-2 border-l border-slate-200 dark:border-slate-700 flex items-center gap-1">
+            <a
+              href="/admin"
+              className="px-2 py-1 text-[10px] font-bold rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+              title="Admin Portal Link (/admin)"
+            >
+              Admin
+            </a>
+            <a
+              href="/receptionist"
+              className="px-2 py-1 text-[10px] font-bold rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+              title="Receptionist Portal Link (/receptionist)"
+            >
+              Recep
+            </a>
+            <a
+              href="/consultant"
+              className="px-2 py-1 text-[10px] font-bold rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+              title="Consultant Portal Link (/consultant)"
+            >
+              Doctor
+            </a>
+            <a
+              href="/laboratory"
+              className="px-2 py-1 text-[10px] font-bold rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+              title="Lab Portal Link (/laboratory)"
+            >
+              Lab
+            </a>
+            <a
+              href="/ultrasound"
+              className="px-2 py-1 text-[10px] font-bold rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+              title="Ultrasound Portal Link (/ultrasound)"
+            >
+              US
+            </a>
+            <a
+              href="/pharmacy"
+              className="px-2 py-1 text-[10px] font-bold rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+              title="Pharmacy Portal Link (/pharmacy)"
+            >
+              Pharma
+            </a>
           </div>
         </div>
 

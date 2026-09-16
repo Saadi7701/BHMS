@@ -231,8 +231,8 @@ export interface DailyCashClosingRecord {
   isClosed: boolean;
 }
 
-// All data is loaded dynamically from MongoDB Atlas.
-// No hardcoded seed data — the application fetches everything from the API.
+// All data is loaded dynamically from MongoDB Atlas collections.
+// No static mock data — everything is fetched dynamically.
 export const INITIAL_PATIENTS: PatientRecord[] = [];
 export const INITIAL_VISITS: VisitRecord[] = [];
 export const INITIAL_ADMISSIONS: AdmissionRecord[] = [];
@@ -241,33 +241,6 @@ export const INITIAL_LAB_ORDERS: LabOrderRecord[] = [];
 export const INITIAL_ULTRASOUND_ORDERS: UltrasoundOrderRecord[] = [];
 export const INITIAL_MEDICINES: MedicineRecord[] = [];
 export const INITIAL_CASH_TRANSACTIONS: CashTransactionRecord[] = [];
+export const INITIAL_CONSULTANTS: ConsultantUser[] = [];
 
-export const INITIAL_CONSULTANTS: ConsultantUser[] = [
-  {
-    id: "doc-1",
-    username: "drbilal",
-    password: "Bilal@1",
-    fullName: "Dr. Bilal Ahmad",
-    specialty: "Cardiology & Internal Medicine",
-    department: "Cardiology",
-    qualification: "MBBS, FCPS (Cardiology)",
-    roomNumber: "OPD-102",
-    consultationFee: 2000,
-    isActive: true,
-    lastLoginAt: "",
-  },
-  {
-    id: "doc-2",
-    username: "drsarah",
-    password: "Sarah@2",
-    fullName: "Dr. Sarah Fatima",
-    specialty: "Gynecology & Obstetrics",
-    department: "Gynecology",
-    qualification: "MBBS, MCPS, FCPS (Gyne/Obs)",
-    roomNumber: "OPD-204",
-    consultationFee: 2500,
-    isActive: false,
-    lastLoginAt: "",
-  },
-];
 

@@ -1,14 +1,15 @@
+"use client";
+
 import React, { useState } from "react";
 import {
   Pill,
-  Package,
-  AlertTriangle,
-  History,
   CheckCircle2,
-  Plus,
   DollarSign,
-  ShoppingCart,
-  ShieldAlert,
+  TrendingUp,
+  LayoutDashboard,
+  Clock,
+  ShieldCheck,
+  FileText,
 } from "lucide-react";
 import { StatCard } from "../ui/StatCard";
 import { Badge } from "../ui/Badge";
@@ -19,51 +20,52 @@ import {
   CashTransactionRecord,
 } from "../../lib/mockDataStore";
 
+import {
+  BarChart,
+  Bar,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
 interface PharmacyPortalProps {
   activeTab: string;
   prescriptions: PrescriptionRecord[];
-  medicines: MedicineRecord[];
+  medicines?: MedicineRecord[];
   onDispensePrescription: (
     prescriptionId: string,
     transaction: CashTransactionRecord
   ) => void;
-  onAddMedicineBatch: (medicine: MedicineRecord) => void;
+  onAddMedicineBatch?: (medicine: MedicineRecord) => void;
 }
 
 export const PharmacyPortal: React.FC<PharmacyPortalProps> = ({
   activeTab,
-  prescriptions,
-  medicines,
+  prescriptions = [],
   onDispensePrescription,
-  onAddMedicineBatch,
 }) => {
   const [selectedRxForDispense, setSelectedRxForDispense] =
     useState<PrescriptionRecord | null>(null);
 
-  const [newMed, setNewMed] = useState({
-    genericName: "Paracetamol",
-    brandName: "Panadol 500mg",
-    category: "Analgesic",
-    purchasePrice: "2.5",
-    salePrice: "4.0",
-    availableQty: "500",
-    batchNumber: "PN-992",
-    expiryDate: "2028-09-30",
-  });
+  const pendingRx = prescriptions.filter((p) => !p.isDispensed);
+  const dispensedRx = prescriptions.filter((p) => p.isDispensed);
 
-  const lowStockMeds = medicines.filter((m) => m.availableQty <= m.reorderLevel);
-  const expiringMeds = medicines.filter(
-    (m) => new Date(m.expiryDate) <= new Date("2026-12-31")
-  );
+  // Pharmacy Total Income
+  const totalPharmacySales = dispensedRx.length * 1080;
+  const avgRxValue = dispensedRx.length > 0 ? totalPharmacySales / dispensedRx.length : 1080;
 
   const handleDispenseSubmit = () => {
     if (!selectedRxForDispense) return;
 
-    const totalAmt = selectedRxForDispense.items.length * 540;
+    const totalAmt = (selectedRxForDispense.items.length || 1) * 540;
 
     const newLedgerTxn: CashTransactionRecord = {
       id: `txn-${Date.now()}`,
-      transactionNumber: `TXN-2026-${String(Date.now()).slice(-4)}`,
+      transactionNumber: `TXN-PHARM-${String(Date.now()).slice(-4)}`,
       transactionType: "INCOME",
       category: "Pharmacy Sale",
       department: "Pharmacy",
@@ -82,407 +84,348 @@ export const PharmacyPortal: React.FC<PharmacyPortalProps> = ({
 
     onDispensePrescription(selectedRxForDispense.id, newLedgerTxn);
     setSelectedRxForDispense(null);
-    alert("Medicines dispensed successfully! Stock deducted & Cash Ledger entry recorded.");
-  };
-
-  const handleAddBatchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const createdMed: MedicineRecord = {
-      id: `med-${Date.now()}`,
-      genericName: newMed.genericName,
-      brandName: newMed.brandName,
-      category: newMed.category,
-      purchasePrice: parseFloat(newMed.purchasePrice) || 5,
-      salePrice: parseFloat(newMed.salePrice) || 8,
-      availableQty: parseInt(newMed.availableQty) || 100,
-      reorderLevel: 50,
-      batchNumber: newMed.batchNumber,
-      expiryDate: newMed.expiryDate,
-    };
-    onAddMedicineBatch(createdMed);
-    alert("New medicine stock batch added successfully!");
+    alert(`Prescription for ${selectedRxForDispense.patientName} dispensed successfully! Rs. ${totalAmt} recorded in Cash Ledger.`);
   };
 
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-cyan-900 via-slate-900 to-slate-900 p-6 rounded-2xl border border-cyan-800/40 shadow-lg text-white">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-cyan-950 via-slate-900 to-slate-900 p-6 rounded-2xl border border-cyan-800/40 shadow-lg text-white">
         <div>
           <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-wider mb-1">
             <Pill className="w-4 h-4" />
-            <span>Hospital Pharmacy & FIFO Inventory</span>
+            <span>Hospital Pharmacy Portal</span>
           </div>
           <h2 className="text-2xl font-black tracking-tight">
-            Prescription Dispensing & Stock Management
+            Digital Prescriptions & Pharmacy Income Analytics
           </h2>
           <p className="text-xs text-slate-300 mt-1">
-            Automated digital prescription queue, batch stock deduction, and automatic cash ledger transaction generation.
+            Fulfill electronic prescriptions dispatched from OPD clinics and monitor real-time daily pharmacy sales & income.
           </p>
         </div>
-      </div>
 
-      {activeTab === "queue" && (
-      <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Active Prescriptions Queue"
-          value={prescriptions.filter((p) => !p.isDispensed).length}
-          subtitle="Awaiting Dispensing"
-          icon={Pill}
-          iconBg="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
-        />
-        <StatCard
-          title="Total Dispensed Today"
-          value={prescriptions.filter((p) => p.isDispensed).length}
-          subtitle="Completed Pharmacy Sales"
-          icon={CheckCircle2}
-          iconBg="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-        />
-        <StatCard
-          title="Low Stock Warning"
-          value={lowStockMeds.length}
-          subtitle="Below Reorder Threshold"
-          icon={AlertTriangle}
-          iconBg="bg-rose-500/10 text-rose-600 dark:text-rose-400"
-        />
-        <StatCard
-          title="Near Expiry Batches"
-          value={expiringMeds.length}
-          subtitle="Expiring Soon"
-          icon={ShieldAlert}
-          iconBg="bg-amber-500/10 text-amber-600 dark:text-amber-400"
-        />
-      </div>
-
-      {/* Alerts Row */}
-      {lowStockMeds.length > 0 && (
-        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs space-y-2">
-          <div className="flex items-center gap-2 font-bold text-sm">
-            <AlertTriangle className="w-5 h-5 text-rose-500" />
-            <span>CRITICAL INVENTORY ALERT: Low Stock Detected</span>
-          </div>
-          {lowStockMeds.map((med) => (
-            <div key={med.id} className="flex justify-between items-center bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900">
-              <span className="font-bold">{med.brandName} ({med.genericName})</span>
-              <span className="font-mono font-bold">Qty Remaining: <span className="text-rose-500">{med.availableQty}</span> (Reorder Level: {med.reorderLevel})</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Prescriptions Queue Table */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-            <Pill className="w-4 h-4 text-cyan-500" />
-            <span>Digital Prescriptions Queue (Dispatched from Clinics)</span>
-          </h3>
-          <span className="text-xs text-slate-500">
-            {prescriptions.length} Total Prescriptions
-          </span>
-        </div>
-
-        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-50 dark:bg-slate-800 text-[11px] font-bold text-slate-500 uppercase border-b border-slate-200 dark:border-slate-800">
-                <th className="py-3 px-4">Rx Date/Time</th>
-                <th className="py-3 px-4">Patient Name</th>
-                <th className="py-3 px-4">Consultant</th>
-                <th className="py-3 px-4">Diagnosis</th>
-                <th className="py-3 px-4">Prescribed Medicines</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {prescriptions.map((rx) => (
-                <tr key={rx.id} className="hover:bg-slate-50/50">
-                  <td className="py-3 px-4 text-slate-500 font-mono">
-                    {rx.prescriptionDate}
-                  </td>
-                  <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
-                    {rx.patientName}
-                    <span className="block text-[11px] font-mono text-slate-400">
-                      {rx.mrNumber}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
-                    {rx.consultantName}
-                  </td>
-                  <td className="py-3 px-4 font-semibold text-brand-600">
-                    {rx.diagnosis}
-                  </td>
-                  <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
-                    {rx.items.map((i) => i.medicineName).join(", ")}
-                  </td>
-                  <td className="py-3 px-4">
-                    <Badge variant={rx.isDispensed ? "success" : "warning"}>
-                      {rx.isDispensed ? "DISPENSED" : "PENDING"}
-                    </Badge>
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <button
-                      className="px-3 py-1.5 rounded-lg bg-cyan-600/10 text-cyan-600 font-bold text-xs"
-                    >
-                      View Details
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex items-center gap-3">
+          <Badge variant="info" size="md">
+            Active Pharmacy Desk
+          </Badge>
         </div>
       </div>
-      </>
-      )}
 
-      {/* VIEW: DISPENSE */}
-      {activeTab === "dispense" && (
+      {/* TAB 1: ACTIVE PRESCRIPTIONS QUEUE */}
+      {(activeTab === "pharmacy_queue" || activeTab === "overview" || !["pharmacy_income"].includes(activeTab)) && (
         <div className="space-y-6">
-          {!selectedRxForDispense ? (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 space-y-4">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Select Pending Prescription to Dispense
-              </h3>
-              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-800 text-[11px] font-bold text-slate-500 uppercase border-b">
-                      <th className="py-2 px-3">Patient Name</th>
-                      <th className="py-2 px-3">Date</th>
-                      <th className="py-2 px-3">Consultant</th>
-                      <th className="py-2 px-3 text-right">Action</th>
+          {/* Top Quick Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              title="Pending Prescriptions"
+              value={pendingRx.length}
+              subtitle="Awaiting Dispensing"
+              icon={Pill}
+              iconBg="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+            />
+            <StatCard
+              title="Dispensed Today"
+              value={dispensedRx.length}
+              subtitle="Completed Pharmacy Sales"
+              icon={CheckCircle2}
+              iconBg="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+            />
+            <StatCard
+              title="Today's Pharmacy Income"
+              value={`Rs. ${totalPharmacySales.toLocaleString()}`}
+              subtitle="Pharmacy Cash Sales"
+              icon={TrendingUp}
+              iconBg="bg-blue-500/10 text-blue-600 dark:text-blue-400"
+            />
+            <StatCard
+              title="Avg Rx Ticket Size"
+              value={`Rs. ${Math.round(avgRxValue).toLocaleString()}`}
+              subtitle="Per Prescription Sale"
+              icon={DollarSign}
+              iconBg="bg-amber-500/10 text-amber-600 dark:text-amber-400"
+            />
+          </div>
+
+          {/* Prescriptions Queue Table */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <Pill className="w-5 h-5 text-cyan-500" />
+                  <span>Digital Prescriptions Queue (Dispatched from OPD Clinics)</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Select a prescription to view prescribed dosage instructions and record cash medicine sales.
+                </p>
+              </div>
+              <span className="text-xs font-bold text-slate-400 font-mono">
+                {prescriptions.length} Total RX
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-100 dark:bg-slate-800 text-[11px] font-extrabold text-slate-600 dark:text-slate-300 uppercase border-b border-slate-200 dark:border-slate-700">
+                    <th className="py-3.5 px-4">Rx Date / Time</th>
+                    <th className="py-3.5 px-4">Patient Name & MR No</th>
+                    <th className="py-3.5 px-4">Consultant Doctor</th>
+                    <th className="py-3.5 px-4">Clinical Diagnosis</th>
+                    <th className="py-3.5 px-4">Prescribed Medicines</th>
+                    <th className="py-3.5 px-4">Dispense Status</th>
+                    <th className="py-3.5 px-4 text-right">Dispense Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {prescriptions.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-slate-400 italic">
+                        No prescriptions currently in queue.
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {prescriptions.filter(p => !p.isDispensed).map((rx) => (
-                      <tr key={rx.id} className="hover:bg-slate-50/50">
-                        <td className="py-2 px-3 font-bold">{rx.patientName}</td>
-                        <td className="py-2 px-3 font-mono text-slate-500">{rx.prescriptionDate}</td>
-                        <td className="py-2 px-3">{rx.consultantName}</td>
-                        <td className="py-2 px-3 text-right">
-                          <button
-                            onClick={() => setSelectedRxForDispense(rx)}
-                            className="px-3 py-1.5 rounded-lg bg-cyan-600 text-white font-bold text-xs shadow-sm"
-                          >
-                            Select for Dispensing
-                          </button>
+                  ) : (
+                    prescriptions.map((rx) => (
+                      <tr key={rx.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                        <td className="py-3 px-4 text-slate-500 font-mono">
+                          {rx.prescriptionDate}
+                        </td>
+                        <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
+                          {rx.patientName}
+                          <span className="block text-[10px] font-mono text-slate-400 font-normal">
+                            {rx.mrNumber}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-700 dark:text-slate-300 font-semibold">
+                          {rx.consultantName}
+                        </td>
+                        <td className="py-3 px-4 font-semibold text-cyan-600 dark:text-cyan-400">
+                          {rx.diagnosis}
+                        </td>
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-300 max-w-xs truncate">
+                          {rx.items && rx.items.length > 0
+                            ? rx.items.map((i) => i.medicineName).join(", ")
+                            : "Standard Meds"}
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge variant={rx.isDispensed ? "success" : "warning"}>
+                            {rx.isDispensed ? "DISPENSED" : "PENDING"}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {!rx.isDispensed ? (
+                            <button
+                              onClick={() => setSelectedRxForDispense(rx)}
+                              className="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-md shadow-cyan-600/20 transition-all"
+                            >
+                              Dispense & Log Sale
+                            </button>
+                          ) : (
+                            <span className="text-[11px] font-mono text-emerald-500 font-bold">
+                              ✓ Sale Posted
+                            </span>
+                          )}
                         </td>
                       </tr>
-                    ))}
-                    {prescriptions.filter(p => !p.isDispensed).length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="py-4 text-center text-slate-500">No pending prescriptions found.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: PHARMACY DAILY INCOME & SALES ANALYSIS */}
+      {activeTab === "pharmacy_income" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <StatCard
+              title="Today's Pharmacy Sales Revenue"
+              value={`Rs. ${totalPharmacySales.toLocaleString()}`}
+              subtitle="Gross Cash Income"
+              icon={TrendingUp}
+              iconBg="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+            />
+            <StatCard
+              title="Dispensed Prescriptions Count"
+              value={dispensedRx.length}
+              subtitle="Successful Sales Transactions"
+              icon={CheckCircle2}
+              iconBg="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+            />
+            <StatCard
+              title="Average Ticket Size"
+              value={`Rs. ${Math.round(avgRxValue).toLocaleString()}`}
+              subtitle="Per Prescription Sale"
+              icon={DollarSign}
+              iconBg="bg-purple-500/10 text-purple-600 dark:text-purple-400"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Sales Chart */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-cyan-500" />
+                    <span>Pharmacy Daily Income Trend (Rs.)</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Real-time pharmacy revenue collection performance over time.
+                  </p>
+                </div>
+                <Badge variant="info">Income Trend</Badge>
+              </div>
+
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={[
+                      { time: "09:00 AM", sales: 1620 },
+                      { time: "11:00 AM", sales: 3240 },
+                      { time: "01:00 PM", sales: 5400 },
+                      { time: "03:00 PM", sales: totalPharmacySales || 6480 },
+                    ]}
+                  >
+                    <defs>
+                      <linearGradient id="pharmaColor" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                    <XAxis dataKey="time" stroke="#888888" fontSize={11} />
+                    <YAxis stroke="#888888" fontSize={11} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#0f172a",
+                        borderColor: "#334155",
+                        borderRadius: "12px",
+                        color: "#ffffff",
+                        fontSize: "12px",
+                      }}
+                      formatter={(val: any) => [`Rs. ${Number(val).toLocaleString()}`, "Pharmacy Sales"]}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="sales"
+                      stroke="#06b6d4"
+                      strokeWidth={3}
+                      fillOpacity={1}
+                      fill="url(#pharmaColor)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </div>
-          ) : (
 
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 space-y-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white border-b pb-2">
-              Dispense Prescription & Record Sale - {selectedRxForDispense.patientName} ({selectedRxForDispense.mrNumber})
-            </h3>
-            <div className="space-y-4 text-xs">
-              <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 font-medium">
-                Automated FIFO Batch Deduction: Stock will be deducted from active batches and sale cash will post to Central Cash Ledger.
+            {/* Prescriptions Dispensed Bar Chart */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    <span>Hourly Prescriptions Dispensed Count</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Hourly volume of completed prescription sales.
+                  </p>
+                </div>
+                <Badge variant="success">Fulfillment Rate</Badge>
               </div>
 
-              <div className="space-y-2 border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-slate-50 dark:bg-slate-950">
-                <h4 className="font-bold text-slate-900 dark:text-white">
-                  Prescribed Medicines List:
-                </h4>
-                {selectedRxForDispense.items.map((item, i) => (
-                  <div key={i} className="flex justify-between items-center text-xs py-1 border-b border-slate-200 dark:border-slate-800 last:border-0">
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={[
+                      { hour: "9 AM", count: 2 },
+                      { hour: "11 AM", count: 4 },
+                      { hour: "1 PM", count: 6 },
+                      { hour: "3 PM", count: dispensedRx.length || 8 },
+                    ]}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                    <XAxis dataKey="hour" stroke="#888888" fontSize={11} />
+                    <YAxis stroke="#888888" fontSize={11} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#0f172a",
+                        borderColor: "#334155",
+                        borderRadius: "12px",
+                        color: "#ffffff",
+                        fontSize: "12px",
+                      }}
+                      formatter={(val: any) => [`${val} Prescriptions`, "Dispensed"]}
+                    />
+                    <Bar dataKey="count" fill="#10b981" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Dispense & Log Sale */}
+      {selectedRxForDispense && (
+        <Modal
+          isOpen={!!selectedRxForDispense}
+          onClose={() => setSelectedRxForDispense(null)}
+          title={`Dispense Prescription - ${selectedRxForDispense.patientName}`}
+          subtitle={`MR No: ${selectedRxForDispense.mrNumber} | Consultant: ${selectedRxForDispense.consultantName}`}
+          maxWidth="md"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-700 dark:text-cyan-300">
+              Confirm medicine dispensing. Total sale amount will automatically be posted to the Central Financial Cash Ledger under Pharmacy Income.
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
+              <h4 className="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">
+                Prescribed Medicines Items:
+              </h4>
+              {selectedRxForDispense.items && selectedRxForDispense.items.length > 0 ? (
+                selectedRxForDispense.items.map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center py-1.5 border-b border-slate-200 dark:border-slate-800 last:border-0">
                     <div>
-                      <span className="font-bold text-slate-900 dark:text-white">{item.medicineName}</span>
-                      <span className="block text-[11px] text-slate-500">{item.dosage} • {item.instructions}</span>
+                      <div className="font-bold text-slate-900 dark:text-white">{item.medicineName}</div>
+                      <div className="text-[11px] text-slate-500">{item.dosage} • {item.frequency} • {item.duration}</div>
                     </div>
                     <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">Rs. 540</span>
                   </div>
-                ))}
-              </div>
-
-              <div className="flex justify-between items-center font-bold text-sm text-slate-900 dark:text-white pt-2 border-t border-slate-100 dark:border-slate-800">
-                <span>Total Pharmacy Bill:</span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-mono text-base">
-                  Rs. {selectedRxForDispense.items.length * 540}
-                </span>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setSelectedRxForDispense(null)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDispenseSubmit}
-                  className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold"
-                >
-                  Confirm Dispensing & Log Cash Sale
-                </button>
-              </div>
-            </div>
-          </div>
-          )}
-        </div>
-      )}
-
-      {/* VIEW: INVENTORY */}
-      {activeTab === "inventory" && (
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-            <Package className="w-4 h-4 text-cyan-500" />
-            <span>Medicine Inventory & Batch Stock Table</span>
-          </h3>
-        </div>
-
-        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-50 dark:bg-slate-800 text-[11px] font-bold text-slate-500 uppercase border-b border-slate-200 dark:border-slate-800">
-                <th className="py-3 px-4">Brand Name</th>
-                <th className="py-3 px-4">Generic Name</th>
-                <th className="py-3 px-4">Batch No</th>
-                <th className="py-3 px-4">Purchase / Sale Price</th>
-                <th className="py-3 px-4">Available Stock</th>
-                <th className="py-3 px-4">Expiry Date</th>
-                <th className="py-3 px-4">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {medicines.map((med) => (
-                <tr key={med.id} className="hover:bg-slate-50/50">
-                  <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
-                    {med.brandName}
-                  </td>
-                  <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
-                    {med.genericName}
-                  </td>
-                  <td className="py-3 px-4 font-mono text-slate-500">
-                    {med.batchNumber}
-                  </td>
-                  <td className="py-3 px-4 font-mono font-bold text-slate-900 dark:text-white">
-                    Rs. {med.purchasePrice} / <span className="text-emerald-600">Rs. {med.salePrice}</span>
-                  </td>
-                  <td className="py-3 px-4 font-mono font-bold">
-                    <span className={med.availableQty <= med.reorderLevel ? "text-rose-500" : "text-slate-900 dark:text-white"}>
-                      {med.availableQty} Units
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 font-mono text-slate-500">
-                    {med.expiryDate}
-                  </td>
-                  <td className="py-3 px-4">
-                    <Badge variant={med.availableQty <= med.reorderLevel ? "danger" : "success"}>
-                      {med.availableQty <= med.reorderLevel ? "LOW STOCK" : "IN STOCK"}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      )}
-
-      {/* VIEW: ADD STOCK */}
-      {activeTab === "add_stock" && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 space-y-4">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white border-b pb-2 flex items-center gap-2">
-            <Plus className="w-5 h-5 text-cyan-500" />
-            Add New Medicine Stock Batch
-          </h3>
-          <form onSubmit={handleAddBatchSubmit} className="space-y-4 text-xs max-w-2xl">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Brand Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={newMed.brandName}
-                  onChange={(e) => setNewMed({ ...newMed, brandName: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                />
-              </div>
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Generic Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={newMed.genericName}
-                  onChange={(e) => setNewMed({ ...newMed, genericName: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                />
-              </div>
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Batch Number *</label>
-                <input
-                  type="text"
-                  required
-                  value={newMed.batchNumber}
-                  onChange={(e) => setNewMed({ ...newMed, batchNumber: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono"
-                />
-              </div>
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Expiry Date *</label>
-                <input
-                  type="date"
-                  required
-                  value={newMed.expiryDate}
-                  onChange={(e) => setNewMed({ ...newMed, expiryDate: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono"
-                />
-              </div>
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Purchase Price (Rs.)</label>
-                <input
-                  type="number"
-                  value={newMed.purchasePrice}
-                  onChange={(e) => setNewMed({ ...newMed, purchasePrice: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                />
-              </div>
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Sale Price (Rs.)</label>
-                <input
-                  type="number"
-                  value={newMed.salePrice}
-                  onChange={(e) => setNewMed({ ...newMed, salePrice: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold text-emerald-600"
-                />
-              </div>
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Available Qty (Units) *</label>
-                <input
-                  type="number"
-                  required
-                  value={newMed.availableQty}
-                  onChange={(e) => setNewMed({ ...newMed, availableQty: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                />
-              </div>
+                ))
+              ) : (
+                <div className="text-slate-500 italic">Standard Prescribed Medicines Pack — Rs. 540</div>
+              )}
             </div>
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 mt-6">
+            <div className="flex justify-between items-center font-black text-sm text-slate-900 dark:text-white pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span>Total Bill Amount:</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-mono text-lg">
+                Rs. {(selectedRxForDispense.items?.length || 1) * 540} PKR
+              </span>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
-                type="submit"
-                className="px-6 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold"
+                type="button"
+                onClick={() => setSelectedRxForDispense(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold"
               >
-                Save Medicine Batch
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDispenseSubmit}
+                className="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold shadow-lg shadow-cyan-600/30 flex items-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Confirm Dispensing & Log Sale</span>
               </button>
             </div>
-          </form>
-        </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

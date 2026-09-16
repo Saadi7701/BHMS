@@ -42,12 +42,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     switch (activePortal) {
       case "ADMIN":
         return [
-          { id: "analytics", label: "Executive Analytics", icon: LayoutDashboard },
+          { id: "analytics", label: "Daily Executive Analysis & Charts", icon: LayoutDashboard },
           { id: "cash_in_table", label: "Daily Cash In Table (Depts)", icon: TrendingUp },
           { id: "cash_out_table", label: "Daily Cash Out Table (Causes)", icon: TrendingDown },
           { id: "cash_ledger", label: "All Transactions Ledger", icon: Wallet },
           { id: "cash_closing", label: "Daily Cash Closing", icon: Lock },
-          { id: "users_rbac", label: "User Roles & Staff", icon: ShieldCheck },
+          { id: "users_rbac", label: "User Roles & Staff Passwords", icon: ShieldCheck },
           { id: "audit_logs", label: "Immutable Audit Logs", icon: History },
           { id: "system_health", label: "DB, PITR & Backup Health", icon: Server },
         ];
@@ -80,9 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       case "PHARMACY":
         return [
           { id: "pharmacy_queue", label: "Active Prescriptions Queue", icon: Pill },
-          { id: "inventory", label: "Medicine Inventory & Batches", icon: Package },
-          { id: "stock_alerts", label: "Low Stock & Expiry Alerts", icon: AlertTriangle },
-          { id: "stock_movements", label: "Stock Movement History", icon: History },
+          { id: "pharmacy_income", label: "Pharmacy Daily Income & Sales", icon: LayoutDashboard },
         ];
       default:
         return [];

@@ -22,6 +22,30 @@ export class UserRepository {
     await connectToProductionDatabase();
     return UserModel.find({ isActive: true }).exec();
   }
+
+  async findAll(): Promise<IUser[]> {
+    await connectToProductionDatabase();
+    return UserModel.find({}).sort({ createdAt: -1 }).exec();
+  }
+
+  async updatePassword(userId: string, passwordHash: string): Promise<IUser | null> {
+    await connectToProductionDatabase();
+    return UserModel.findByIdAndUpdate(
+      userId,
+      { passwordHash },
+      { new: true }
+    ).exec();
+  }
+
+  async updateUser(userId: string, updateData: Partial<IUser>): Promise<IUser | null> {
+    await connectToProductionDatabase();
+    return UserModel.findByIdAndUpdate(
+      userId,
+      { ...updateData },
+      { new: true }
+    ).exec();
+  }
 }
 
 export const userRepository = new UserRepository();
+
