@@ -13,6 +13,7 @@ import {
   ShieldAlert,
   LogOut,
   UserCheck,
+  Plus,
 } from "lucide-react";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { AuthSessionUser } from "../../lib/authSession";
@@ -28,9 +29,10 @@ export type RolePortal =
 interface NavbarProps {
   currentUser: AuthSessionUser;
   onLogout: () => void;
+  onLogExpense?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentUser, onLogout }) => {
+export const Navbar: React.FC<NavbarProps> = ({ currentUser, onLogout, onLogExpense }) => {
   const [time, setTime] = useState<string>("");
   const [notificationsCount, setNotificationsCount] = useState(3);
 
@@ -140,6 +142,17 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onLogout }) => {
 
         {/* Right Info Section */}
         <div className="flex items-center gap-3 md:gap-4">
+          {currentUser.portal === "ADMIN" && onLogExpense && (
+            <button
+              onClick={onLogExpense}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md shadow-purple-600/30 transition-all active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Log Hospital Expense</span>
+              <span className="sm:hidden">Log Expense</span>
+            </button>
+          )}
+
           <ThemeToggle />
 
           {/* Live Clock */}

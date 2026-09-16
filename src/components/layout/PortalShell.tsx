@@ -58,6 +58,9 @@ export const PortalShell: React.FC<PortalShellProps> = ({ targetPortal }) => {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [isInitializing, setIsInitializing] = useState(true);
 
+  // Modal State for Log Expense (controlled from Navbar or AdminPortal)
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+
   // Master Dynamic Data State (Initially Empty, Populated via API from MongoDB)
   const [patients, setPatients] = useState<PatientRecord[]>([]);
   const [visits, setVisits] = useState<VisitRecord[]>([]);
@@ -400,7 +403,11 @@ export const PortalShell: React.FC<PortalShellProps> = ({ targetPortal }) => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-brand-500 selection:text-white transition-colors duration-300">
-      <Navbar currentUser={currentUser} onLogout={handleLogout} />
+      <Navbar
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onLogExpense={() => setIsExpenseModalOpen(true)}
+      />
 
       <div className="flex-1 flex max-w-[1600px] w-full mx-auto">
         <Sidebar
@@ -420,6 +427,8 @@ export const PortalShell: React.FC<PortalShellProps> = ({ targetPortal }) => {
               onAddExpense={handleAddExpense}
               onAddReversal={handleAddReversal}
               onAddConsultant={handleAddConsultant}
+              isExpenseModalOpen={isExpenseModalOpen}
+              setIsExpenseModalOpen={setIsExpenseModalOpen}
             />
           )}
 
