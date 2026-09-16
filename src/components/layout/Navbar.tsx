@@ -14,6 +14,7 @@ import {
   LogOut,
   UserCheck,
   Plus,
+  Trash2,
 } from "lucide-react";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { AuthSessionUser } from "../../lib/authSession";
@@ -30,9 +31,10 @@ interface NavbarProps {
   currentUser: AuthSessionUser;
   onLogout: () => void;
   onLogExpense?: () => void;
+  onPurgeData?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentUser, onLogout, onLogExpense }) => {
+export const Navbar: React.FC<NavbarProps> = ({ currentUser, onLogout, onLogExpense, onPurgeData }) => {
   const [time, setTime] = useState<string>("");
   const [notificationsCount, setNotificationsCount] = useState(3);
 
@@ -141,7 +143,18 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onLogout, onLogExpe
         </div>
 
         {/* Right Info Section */}
-        <div className="flex items-center gap-3 md:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
+          {currentUser.portal === "ADMIN" && onPurgeData && (
+            <button
+              onClick={onPurgeData}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold text-xs border border-rose-500/30 transition-all active:scale-95 cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Purge Mock Data</span>
+              <span className="sm:hidden">Purge Data</span>
+            </button>
+          )}
+
           {currentUser.portal === "ADMIN" && onLogExpense && (
             <button
               onClick={onLogExpense}

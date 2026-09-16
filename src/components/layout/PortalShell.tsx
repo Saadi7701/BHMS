@@ -58,8 +58,9 @@ export const PortalShell: React.FC<PortalShellProps> = ({ targetPortal }) => {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // Modal State for Log Expense (controlled from Navbar or AdminPortal)
+  // Modal State for Log Expense & Purge Data (controlled from Navbar or AdminPortal)
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [isPurgeModalOpen, setIsPurgeModalOpen] = useState(false);
 
   // Master Dynamic Data State (Initially Empty, Populated via API from MongoDB)
   const [patients, setPatients] = useState<PatientRecord[]>([]);
@@ -162,19 +163,15 @@ export const PortalShell: React.FC<PortalShellProps> = ({ targetPortal }) => {
 
   const handleAddVisit = async (visit: VisitRecord, transaction: CashTransactionRecord) => {
     setVisits((prev) => [visit, ...prev]);
-    setCashTransactions((prev) => [transaction, ...prev]);
-    await createVisitApi(visit);
     if (transaction && transaction.amount > 0) {
-      await createCashTransactionApi(transaction);
+      setCashTransactions((prev) => [transaction, ...prev]);
     }
+    await createVisitApi(visit);
     loadDynamicData();
   };
 
   const handleAddAdmission = (admission: AdmissionRecord, transaction: CashTransactionRecord) => {
     setAdmissions((prev) => [admission, ...prev]);
-    if (transaction && transaction.amount > 0) {
-      createCashTransactionApi(transaction);
-    }
   };
 
   const handleDischargePatient = (admissionId: string) => {
@@ -196,21 +193,19 @@ export const PortalShell: React.FC<PortalShellProps> = ({ targetPortal }) => {
 
   const handleAddLabOrder = async (order: LabOrderRecord, transaction: CashTransactionRecord) => {
     setLabOrders((prev) => [order, ...prev]);
-    setCashTransactions((prev) => [transaction, ...prev]);
-    await createLabOrderApi(order);
     if (transaction && transaction.amount > 0) {
-      await createCashTransactionApi(transaction);
+      setCashTransactions((prev) => [transaction, ...prev]);
     }
+    await createLabOrderApi(order);
     loadDynamicData();
   };
 
   const handleAddUltrasoundOrder = async (order: UltrasoundOrderRecord, transaction: CashTransactionRecord) => {
     setUltrasoundOrders((prev) => [order, ...prev]);
-    setCashTransactions((prev) => [transaction, ...prev]);
-    await createUltrasoundOrderApi(order);
     if (transaction && transaction.amount > 0) {
-      await createCashTransactionApi(transaction);
+      setCashTransactions((prev) => [transaction, ...prev]);
     }
+    await createUltrasoundOrderApi(order);
     loadDynamicData();
   };
 
@@ -407,6 +402,7 @@ export const PortalShell: React.FC<PortalShellProps> = ({ targetPortal }) => {
         currentUser={currentUser}
         onLogout={handleLogout}
         onLogExpense={() => setIsExpenseModalOpen(true)}
+        onPurgeData={() => setIsPurgeModalOpen(true)}
       />
 
       <div className="flex-1 flex max-w-[1600px] w-full mx-auto">
@@ -429,6 +425,8 @@ export const PortalShell: React.FC<PortalShellProps> = ({ targetPortal }) => {
               onAddConsultant={handleAddConsultant}
               isExpenseModalOpen={isExpenseModalOpen}
               setIsExpenseModalOpen={setIsExpenseModalOpen}
+              isPurgeModalOpen={isPurgeModalOpen}
+              setIsPurgeModalOpen={setIsPurgeModalOpen}
             />
           )}
 
