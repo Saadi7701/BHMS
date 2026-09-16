@@ -25,6 +25,7 @@ import {
   DollarSign,
   TrendingUp,
   TrendingDown,
+  CheckCircle2,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -60,9 +61,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ];
       case "CONSULTANT":
         return [
-          { id: "queue", label: "Today's Patient Queue", icon: Stethoscope },
-          { id: "lab_reports", label: "Lab Reports", icon: TestTube },
-          { id: "ultrasound_reports", label: "Ultrasound Reports", icon: Radio },
+          { id: "queue", label: "Waiting Patient Queue", icon: Stethoscope },
+          { id: "checked_queue", label: "Daily Checked Patients Queue", icon: CheckCircle2 },
+          { id: "lab_requests", label: "Diagnostic Requests Queue", icon: TestTube },
+          { id: "report_review", label: "Lab & Scan Reports Inbox", icon: FileSpreadsheet },
         ];
       case "LABORATORY":
         return [

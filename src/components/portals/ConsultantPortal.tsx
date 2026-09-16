@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Stethoscope,
   Send,
@@ -68,6 +68,7 @@ interface FileModal {
 }
 
 export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
+  activeTab: propActiveTab,
   visits,
   labOrders,
   ultrasoundOrders,
@@ -84,7 +85,15 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'queue' | 'report_review'>('queue');
+  const [internalTab, setInternalTab] = useState<string>('queue');
+
+  useEffect(() => {
+    if (propActiveTab) {
+      setInternalTab(propActiveTab);
+    }
+  }, [propActiveTab]);
+
+  const currentTab = internalTab;
   const [activeVisit, setActiveVisit] = useState<VisitRecord | null>(null);
 
   const [diagnosis, setDiagnosis] = useState('');
@@ -138,7 +147,7 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
     setActiveVisit(null);
   };
 
-  const consultantVisits = visits.filter((v) => {
+  const isConsultantForVisit = (v: VisitRecord) => {
     const isDoc1Match =
       selectedConsultant === "doc-1" &&
       (v.consultantId === "doc-1" ||
@@ -148,15 +157,23 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
       selectedConsultant === "doc-2" &&
       (v.consultantId === "doc-2" || v.consultantName?.toLowerCase().includes("sarah"));
     const isGenericMatch = v.consultantId === selectedConsultant;
-    const isConsultantMatch = isDoc1Match || isDoc2Match || isGenericMatch;
-    return (
-      isConsultantMatch &&
-      (v.status === "REGISTERED" ||
-        v.status === "WAITING" ||
-        v.status === "WITH_CONSULTANT" ||
-        v.status === "CHECKED")
-    );
-  });
+    return isDoc1Match || isDoc2Match || isGenericMatch;
+  };
+
+  // 1. Waiting Queue (Only WAITING, REGISTERED, WITH_CONSULTANT)
+  const waitingVisits = visits.filter(
+    (v) => isConsultantForVisit(v) && (v.status === "REGISTERED" || v.status === "WAITING" || v.status === "WITH_CONSULTANT")
+  );
+
+  // 2. Daily Checked Queue (CHECKED, COMPLETED)
+  const checkedVisits = visits.filter(
+    (v) => isConsultantForVisit(v) && (v.status === "CHECKED" || v.status === "COMPLETED")
+  );
+
+  // 3. Diagnostic Requests Queue (LAB_REQUESTED, ULTRASOUND_REQUESTED)
+  const diagnosticRequestVisits = visits.filter(
+    (v) => isConsultantForVisit(v) && (v.status === "LAB_REQUESTED" || v.status === "ULTRASOUND_REQUESTED")
+  );
 
   const consultantLabOrders = labOrders.filter((l) => {
     const isDoc1Match =
@@ -206,7 +223,7 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
     };
     onAddPrescription(newPrescription);
     onUpdateVisitStatus(activeVisit.id, 'CHECKED');
-    alert('Consultation & Prescription saved!');
+    alert(`Consultation & Prescription saved! Patient ${activeVisit.patientName} moved to Daily Checked Patients Queue.`);
     setActiveVisit(null);
     setRxItems([]);
     setDiagnosis('');
@@ -216,7 +233,8 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
   const handleMarkCheckedOnly = () => {
     if (!activeVisit) return;
     onUpdateVisitStatus(activeVisit.id, 'CHECKED');
-    alert(`Patient ${activeVisit.patientName} marked as CHECKED / COMPLETED!`);
+    alert(`Patient ${activeVisit.patientName} marked as CHECKED / COMPLETED! Moved to Daily Checked Patients Queue.`);
+    setActiveVisit(null);
   };
 
   const handleOrderLabSubmit = (e: React.FormEvent) => {
@@ -448,20 +466,65 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
 
       {/* Tabs — only when no active visit */}
       {!activeVisit && (
-        <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm w-fit">
+        <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <button
-            onClick={() => setActiveTab('queue')}
-            className={`px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'queue' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+            onClick={() => setInternalTab('queue')}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+              currentTab === 'queue'
+                ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shadow-sm'
+                : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
           >
-            <UserCheck className="w-4 h-4" />
-            Patient Queue
+            <UserCheck className="w-4 h-4 text-emerald-600" />
+            <span>Waiting Patients</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold">
+              {waitingVisits.length}
+            </span>
           </button>
+
           <button
-            onClick={() => setActiveTab('report_review')}
-            className={`px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'report_review' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+            onClick={() => setInternalTab('checked_queue')}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+              currentTab === 'checked_queue'
+                ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shadow-sm'
+                : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
           >
-            <FileSpreadsheet className="w-4 h-4" />
-            Report Reviews &amp; Revisions
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <span>Daily Checked Queue</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold">
+              {checkedVisits.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setInternalTab('lab_requests')}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+              currentTab === 'lab_requests'
+                ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shadow-sm'
+                : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
+          >
+            <TestTube className="w-4 h-4 text-amber-500" />
+            <span>Diagnostic Requests</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold">
+              {diagnosticRequestVisits.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setInternalTab('report_review')}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+              currentTab === 'report_review'
+                ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shadow-sm'
+                : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
+          >
+            <FileSpreadsheet className="w-4 h-4 text-blue-500" />
+            <span>Reports Inbox</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold">
+              {consultantLabOrders.length + consultantUltrasoundOrders.length}
+            </span>
           </button>
         </div>
       )}
@@ -672,29 +735,40 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
               </div>
             </div>
           </div>
-        ) : activeTab === 'queue' ? (
-          /* ── QUEUE TABLE ── */
+        ) : currentTab === 'queue' ? (
+          /* ── 1. WAITING PATIENTS QUEUE TABLE ── */
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-emerald-600" /> Waiting Patients Queue
+                </h3>
+                <p className="text-xs text-slate-500">Patients waiting in OPD room or currently under consultation.</p>
+              </div>
+              <span className="px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs">
+                {waitingVisits.length} Waiting
+              </span>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b">
                     <th className="py-4 px-6">Visit No</th>
                     <th className="py-4 px-6">Patient</th>
-                    <th className="py-4 px-6">Reason</th>
+                    <th className="py-4 px-6">Reason for Visit</th>
                     <th className="py-4 px-6">Status</th>
                     <th className="py-4 px-6 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {consultantVisits.length === 0 ? (
+                  {waitingVisits.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-12 text-center text-slate-400 font-bold">
-                        No patients in queue.
+                        No waiting patients in queue.
                       </td>
                     </tr>
                   ) : (
-                    consultantVisits.map((visit) => (
+                    waitingVisits.map((visit) => (
                       <tr key={visit.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                         <td className="py-4 px-6 font-mono font-bold text-emerald-600">{visit.visitNumber}</td>
                         <td className="py-4 px-6">
@@ -705,27 +779,155 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
                         <td className="py-4 px-6">
                           <Badge
                             variant={
-                              visit.status === 'CHECKED'
-                                ? 'success'
-                                : visit.status === 'WAITING'
+                              visit.status === 'WITH_CONSULTANT'
                                 ? 'warning'
                                 : 'info'
                             }
                           >
-                            {visit.status}
+                            {visit.status === 'WITH_CONSULTANT' ? 'In Examination' : visit.status}
                           </Badge>
                         </td>
                         <td className="py-4 px-6 text-right">
                           <button
                             onClick={() => {
                               setActiveVisit(visit);
-                              if (visit.status === 'WAITING') {
+                              if (visit.status === 'WAITING' || visit.status === 'REGISTERED') {
                                 onUpdateVisitStatus(visit.id, 'WITH_CONSULTANT');
                               }
                             }}
-                            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold"
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 ml-auto"
                           >
-                            Open Form
+                            <Stethoscope className="w-3.5 h-3.5" /> Start Examination
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : currentTab === 'checked_queue' ? (
+          /* ── 2. DAILY CHECKED PATIENTS QUEUE TABLE ── */
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500" /> Daily Checked Patients Queue
+                </h3>
+                <p className="text-xs text-slate-500">Patients who have completed consultation today.</p>
+              </div>
+              <span className="px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+                {checkedVisits.length} Checked
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b">
+                    <th className="py-4 px-6">Visit No</th>
+                    <th className="py-4 px-6">Patient</th>
+                    <th className="py-4 px-6">Reason / Notes</th>
+                    <th className="py-4 px-6">Status</th>
+                    <th className="py-4 px-6 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {checkedVisits.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-slate-400 font-bold">
+                        No checked patients yet today.
+                      </td>
+                    </tr>
+                  ) : (
+                    checkedVisits.map((visit) => (
+                      <tr key={visit.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                        <td className="py-4 px-6 font-mono font-bold text-emerald-600">{visit.visitNumber}</td>
+                        <td className="py-4 px-6">
+                          <div className="font-bold text-slate-900 dark:text-white">{visit.patientName}</div>
+                          <div className="text-xs text-slate-500 font-mono mt-0.5">MR: {visit.mrNumber}</div>
+                        </td>
+                        <td className="py-4 px-6 text-slate-600 text-sm max-w-xs truncate">{visit.reasonForVisit}</td>
+                        <td className="py-4 px-6">
+                          <Badge variant="success">CHECKED</Badge>
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <button
+                            onClick={() => setActiveVisit(visit)}
+                            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold shadow-sm inline-flex items-center gap-1.5"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> View Encounter
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : currentTab === 'lab_requests' ? (
+          /* ── 3. DIAGNOSTIC REQUESTS QUEUE TABLE ── */
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <TestTube className="w-5 h-5 text-amber-500" /> Diagnostic Requests Queue
+                </h3>
+                <p className="text-xs text-slate-500">Patients referred for Laboratory or Ultrasound tests.</p>
+              </div>
+              <span className="px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs">
+                {diagnosticRequestVisits.length} Requested
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b">
+                    <th className="py-4 px-6">Visit No</th>
+                    <th className="py-4 px-6">Patient</th>
+                    <th className="py-4 px-6">Diagnostic Service</th>
+                    <th className="py-4 px-6">Status</th>
+                    <th className="py-4 px-6 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {diagnosticRequestVisits.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-slate-400 font-bold">
+                        No pending diagnostic request patients.
+                      </td>
+                    </tr>
+                  ) : (
+                    diagnosticRequestVisits.map((visit) => (
+                      <tr key={visit.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                        <td className="py-4 px-6 font-mono font-bold text-amber-600">{visit.visitNumber}</td>
+                        <td className="py-4 px-6">
+                          <div className="font-bold text-slate-900 dark:text-white">{visit.patientName}</div>
+                          <div className="text-xs text-slate-500 font-mono mt-0.5">MR: {visit.mrNumber}</div>
+                        </td>
+                        <td className="py-4 px-6">
+                          {visit.status === 'LAB_REQUESTED' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-bold">
+                              <TestTube className="w-3.5 h-3.5" /> Laboratory Test
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold">
+                              <Radio className="w-3.5 h-3.5" /> Ultrasound Scan
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-4 px-6">
+                          <Badge variant="warning">
+                            {visit.status === 'LAB_REQUESTED' ? 'Lab Pending' : 'Ultrasound Pending'}
+                          </Badge>
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <button
+                            onClick={() => setActiveVisit(visit)}
+                            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold shadow-sm inline-flex items-center gap-1.5"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> Open Encounter
                           </button>
                         </td>
                       </tr>
@@ -736,11 +938,16 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
             </div>
           </div>
         ) : (
-          /* ── REPORT REVIEW ── */
+          /* ── 4. DIAGNOSTIC REPORTS INBOX ── */
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-amber-500" /> Diagnostic Report Files
-            </h3>
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-amber-500" /> Diagnostic Report Files &amp; Reviews
+              </h3>
+              <span className="text-xs font-bold text-slate-500">
+                Total Files: {consultantLabOrders.length + consultantUltrasoundOrders.length}
+              </span>
+            </div>
             <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl">
               <table className="w-full text-left border-collapse text-sm">
                 <thead>
@@ -771,7 +978,7 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
                               visitId: lab.visitId,
                             })
                           }
-                          className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs inline-flex items-center gap-1.5"
+                          className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-sm"
                         >
                           <Eye className="w-4 h-4" /> View Report
                         </button>
@@ -796,7 +1003,7 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
                               visitId: us.visitId,
                             })
                           }
-                          className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs inline-flex items-center gap-1.5"
+                          className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-sm"
                         >
                           <Eye className="w-4 h-4" /> View Report
                         </button>
