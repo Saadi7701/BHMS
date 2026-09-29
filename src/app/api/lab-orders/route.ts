@@ -1,22 +1,23 @@
 import { NextResponse } from "next/server";
-import { connectToProductionDatabase } from "@/lib/mongodb";
+import { prisma } from "@/lib/prisma";
 import { labRepository } from "@/repositories/LabRepository";
 import { cashRepository } from "@/repositories/CashRepository";
-import { LabOrderModel } from "@/models/LabOrder";
-import mongoose from "mongoose";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patientId");
 
-    await connectToProductionDatabase();
-
     let orders;
     if (patientId) {
       orders = await labRepository.findOrdersByPatient(patientId);
     } else {
-      orders = await LabOrderModel.find().sort({ createdAt: -1 }).limit(100).exec();
+      const records = await prisma.labOrder.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 200,
+        include: { items: true, reports: { include: { versions: true } } },
+      });
+      orders = records.map((o) => ({ ...o, _id: o.id }));
     }
 
     return NextResponse.json({ labOrders: orders }, { status: 200 });
@@ -34,67 +35,47 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     let orderNumber = body.orderNumber || body.labOrderNumber || `LAB-${Date.now().toString().slice(-6)}`;
-    if (!body.patientId || !body.testName) {
+    if (!body.patientId || (!body.testName && (!body.tests || body.tests.length === 0))) {
       return NextResponse.json(
         { error: "Patient ID and Test Name are required." },
         { status: 400 }
       );
     }
 
-    await connectToProductionDatabase();
-
-    const existing = await LabOrderModel.findOne({ orderNumber }).exec();
-    if (existing) {
-      orderNumber = `LAB-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
-    }
-
-    const patientObjectId = mongoose.Types.ObjectId.isValid(body.patientId)
-      ? new mongoose.Types.ObjectId(body.patientId)
-      : new mongoose.Types.ObjectId();
-
-    const visitObjectId = mongoose.Types.ObjectId.isValid(body.visitId)
-      ? new mongoose.Types.ObjectId(body.visitId)
-      : new mongoose.Types.ObjectId();
-
-    const consultantObjectId = mongoose.Types.ObjectId.isValid(body.consultantId)
-      ? new mongoose.Types.ObjectId(body.consultantId)
-      : new mongoose.Types.ObjectId();
+    const fee = Number(body.fee) || Number(body.totalFee) || 0;
+    const testItems = Array.isArray(body.tests)
+      ? body.tests.map((t: string, idx: number) => ({ testName: t, testCode: `TEST-${idx + 1}`, unitPrice: fee / body.tests.length }))
+      : [{ testName: body.testName, testCode: body.testCode || "TEST-01", unitPrice: fee }];
 
     const newOrder = await labRepository.createLabOrder({
       orderNumber,
-      patientId: patientObjectId,
+      patientId: body.patientId,
       patientName: body.patientName || "Patient",
       mrNumber: body.mrNumber || "MR-0000",
-      visitId: visitObjectId,
-      consultantId: consultantObjectId,
+      visitId: body.visitId || "",
+      consultantId: body.consultantId || "",
       consultantName: body.consultantName || "Doctor",
       testCategory: body.category || body.testCategory || "General Pathology",
       clinicalNotes: body.clinicalIndication || body.clinicalNotes || "",
       priority: body.priority === "URGENT" ? "URGENT" : "NORMAL",
       status: "ORDERED",
-      totalFee: Number(body.fee) || 0,
+      totalFee: fee,
       requestDate: new Date(),
-      items: [
-        {
-          testName: body.testName,
-          testCode: body.testCode || "TEST-01",
-          unitPrice: Number(body.fee) || 0,
-        },
-      ],
+      items: testItems,
     });
 
-    if (Number(body.fee) > 0) {
+    if (fee > 0) {
       await cashRepository.createTransaction({
         transactionNumber: `TXN-LAB-${Date.now().toString().slice(-6)}`,
         transactionType: "INCOME",
         category: "LAB_TEST",
         department: "Laboratory",
-        amount: Number(body.fee),
-        paymentMethod: "CASH",
-        description: `Lab test fee for ${body.testName}`,
-        patientId: patientObjectId,
-        visitId: visitObjectId,
-        createdById: consultantObjectId,
+        amount: fee,
+        paymentMethod: body.paymentMethod || "CASH",
+        description: `Lab test fee for ${body.testName || (body.tests ? body.tests.join(', ') : 'Lab Order')}`,
+        patientId: newOrder.patientId,
+        visitId: newOrder.visitId,
+        createdById: newOrder.consultantId,
         transactionDate: new Date(),
       });
     }
@@ -121,44 +102,31 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Lab Order ID is required." }, { status: 400 });
     }
 
-    await connectToProductionDatabase();
-
     let updatedOrder;
     if (action === "SUBMIT_RESULTS") {
       const isV2 = Boolean(isVersion2);
-      const updatePayload: Record<string, any> = {
+      const fields: Record<string, any> = {
         status: isV2 ? "ACCEPTED" : "REPORT_PREPARED",
         attachedPdfName: pdfFileName || "LAB_REPORT.pdf",
       };
-      if (imageBase64) {
-        updatePayload.attachedImageBase64 = imageBase64;
-      }
+      if (imageBase64) fields.attachedImageBase64 = imageBase64;
       if (isV2) {
-        updatePayload.resultsV2 = resultsJson;
-        updatePayload.currentVersion = 2;
+        fields.resultsV2 = resultsJson;
+        fields.currentVersion = 2;
       } else {
-        updatePayload.resultsV1 = resultsJson;
-        updatePayload.currentVersion = 1;
+        fields.resultsV1 = resultsJson;
+        fields.currentVersion = 1;
       }
-
-      if (mongoose.Types.ObjectId.isValid(id)) {
-        updatedOrder = await LabOrderModel.findByIdAndUpdate(id, { $set: updatePayload }, { new: true }).exec();
-      } else {
-        updatedOrder = await LabOrderModel.findOneAndUpdate({ orderNumber: id }, { $set: updatePayload }, { new: true }).exec();
-      }
+      updatedOrder = await labRepository.updateOrderFields(id, fields);
     } else if (action === "ACCEPT") {
       updatedOrder = await labRepository.updateOrderStatus(id, "ACCEPTED");
     } else if (action === "REVISE") {
-      const updatePayload = {
+      const fields = {
         status: "REVISION_REQUESTED",
         revisionReason: revisionReason || "Review requested",
         revisionComment: revisionComment || "",
       };
-      if (mongoose.Types.ObjectId.isValid(id)) {
-        updatedOrder = await LabOrderModel.findByIdAndUpdate(id, { $set: updatePayload }, { new: true }).exec();
-      } else {
-        updatedOrder = await LabOrderModel.findOneAndUpdate({ orderNumber: id }, { $set: updatePayload }, { new: true }).exec();
-      }
+      updatedOrder = await labRepository.updateOrderFields(id, fields);
     } else if (status) {
       updatedOrder = await labRepository.updateOrderStatus(id, status);
     }

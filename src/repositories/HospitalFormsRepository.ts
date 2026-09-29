@@ -1,0 +1,557 @@
+import { prisma } from "../lib/prisma";
+
+export class HospitalFormsRepository {
+  // --- REFERRAL FORM ---
+  async createReferralForm(data: any) {
+    const count = await prisma.referralForm.count();
+    const formNumber = data.formNumber || `REF-${new Date().getFullYear()}-${String(count + 1).padStart(5, "0")}`;
+
+    const medicines = Array.isArray(data.medicines) ? data.medicines : [];
+
+    return await prisma.referralForm.create({
+      data: {
+        formNumber,
+        patientId: data.patientId,
+        visitId: data.visitId || null,
+        formDate: data.formDate ? new Date(data.formDate) : new Date(),
+        dateOfAdmission: data.dateOfAdmission ? new Date(data.dateOfAdmission) : null,
+        presentingComplaint: data.presentingComplaint || null,
+        provisionalDiagnosis: data.provisionalDiagnosis || null,
+        briefHistoryExamination: data.briefHistoryExamination || null,
+        investigationsResults: data.investigationsResults || null,
+        diagnosis: data.diagnosis || null,
+        procedureDone: data.procedureDone || null,
+        conditionAtRefer: data.conditionAtRefer || null,
+        referredHospitalName: data.referredHospitalName || null,
+        reasonForReferral: data.reasonForReferral || null,
+        doctorName: data.doctorName || null,
+        signDate: data.signDate ? new Date(data.signDate) : null,
+        signTime: data.signTime || null,
+        status: data.status || "FINALIZED",
+        createdById: data.createdById || null,
+        medicines: {
+          create: medicines.map((m: any, index: number) => ({
+            srNo: index + 1,
+            medicine: m.medicine || "",
+            dose: m.dose || m.strength || null,
+            route: m.route || null,
+            frequency: m.frequency || null,
+            timing: m.timing || null,
+            duration: m.duration || null,
+          })),
+        },
+      },
+      include: {
+        patient: true,
+        visit: true,
+        medicines: true,
+      },
+    });
+  }
+
+  async getReferralForms(query?: { patientId?: string; search?: string }) {
+    const where: any = {};
+    if (query?.patientId) {
+      where.patientId = query.patientId;
+    }
+    if (query?.search) {
+      const s = query.search.trim();
+      where.OR = [
+        { formNumber: { contains: s, mode: "insensitive" } },
+        { patient: { fullName: { contains: s, mode: "insensitive" } } },
+        { patient: { mrNumber: { contains: s, mode: "insensitive" } } },
+        { referredHospitalName: { contains: s, mode: "insensitive" } },
+      ];
+    }
+    return await prisma.referralForm.findMany({
+      where,
+      include: {
+        patient: true,
+        visit: true,
+        medicines: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async getReferralFormById(id: string) {
+    return await prisma.referralForm.findFirst({
+      where: { OR: [{ id }, { formNumber: id }] },
+      include: {
+        patient: true,
+        visit: true,
+        medicines: true,
+      },
+    });
+  }
+
+  async updateReferralForm(id: string, data: any) {
+    const medicines = Array.isArray(data.medicines) ? data.medicines : null;
+    
+    if (medicines) {
+      await prisma.referralFormMedicine.deleteMany({ where: { referralFormId: id } });
+    }
+
+    return await prisma.referralForm.update({
+      where: { id },
+      data: {
+        dateOfAdmission: data.dateOfAdmission ? new Date(data.dateOfAdmission) : undefined,
+        presentingComplaint: data.presentingComplaint,
+        provisionalDiagnosis: data.provisionalDiagnosis,
+        briefHistoryExamination: data.briefHistoryExamination,
+        investigationsResults: data.investigationsResults,
+        diagnosis: data.diagnosis,
+        procedureDone: data.procedureDone,
+        conditionAtRefer: data.conditionAtRefer,
+        referredHospitalName: data.referredHospitalName,
+        reasonForReferral: data.reasonForReferral,
+        doctorName: data.doctorName,
+        signDate: data.signDate ? new Date(data.signDate) : undefined,
+        signTime: data.signTime,
+        status: data.status,
+        ...(medicines
+          ? {
+              medicines: {
+                create: medicines.map((m: any, index: number) => ({
+                  srNo: index + 1,
+                  medicine: m.medicine || "",
+                  dose: m.dose || m.strength || null,
+                  route: m.route || null,
+                  frequency: m.frequency || null,
+                  timing: m.timing || null,
+                  duration: m.duration || null,
+                })),
+              },
+            }
+          : {}),
+      },
+      include: {
+        patient: true,
+        visit: true,
+        medicines: true,
+      },
+    });
+  }
+
+  // --- DISCHARGE FORM ---
+  async createDischargeForm(data: any) {
+    const count = await prisma.dischargeForm.count();
+    const formNumber = data.formNumber || `DIS-${new Date().getFullYear()}-${String(count + 1).padStart(5, "0")}`;
+
+    const medicines = Array.isArray(data.medicines) ? data.medicines : [];
+
+    return await prisma.dischargeForm.create({
+      data: {
+        formNumber,
+        patientId: data.patientId,
+        visitId: data.visitId || null,
+        formDate: data.formDate ? new Date(data.formDate) : new Date(),
+        dateOfAdmission: data.dateOfAdmission ? new Date(data.dateOfAdmission) : null,
+        presentingComplaint: data.presentingComplaint || null,
+        briefHistoryExamination: data.briefHistoryExamination || null,
+        diagnosticInvestigations: data.diagnosticInvestigations || null,
+        diagnosis: data.diagnosis || null,
+        procedureDone: data.procedureDone || null,
+        outcome: data.outcome || null,
+        dischargeAdvisedByDoctor: data.dischargeAdvisedByDoctor ?? true,
+        isLAMA: data.isLAMA ?? false,
+        dischargeDate: data.dischargeDate ? new Date(data.dischargeDate) : null,
+        dischargeCondition: data.dischargeCondition || null,
+        followUpDate: data.followUpDate ? new Date(data.followUpDate) : null,
+        followUpDepartment: data.followUpDepartment || null,
+        dietaryInstructions: data.dietaryInstructions || null,
+        doctorName: data.doctorName || null,
+        signDate: data.signDate ? new Date(data.signDate) : null,
+        signTime: data.signTime || null,
+        status: data.status || "FINALIZED",
+        createdById: data.createdById || null,
+        medicines: {
+          create: medicines.map((m: any, index: number) => ({
+            srNo: index + 1,
+            medicine: m.medicine || "",
+            dose: m.dose || m.strength || null,
+            route: m.route || null,
+            frequency: m.frequency || null,
+            timing: m.timing || null,
+            duration: m.duration || null,
+          })),
+        },
+      },
+      include: {
+        patient: true,
+        visit: true,
+        medicines: true,
+      },
+    });
+  }
+
+  async getDischargeForms(query?: { patientId?: string; search?: string }) {
+    const where: any = {};
+    if (query?.patientId) {
+      where.patientId = query.patientId;
+    }
+    if (query?.search) {
+      const s = query.search.trim();
+      where.OR = [
+        { formNumber: { contains: s, mode: "insensitive" } },
+        { patient: { fullName: { contains: s, mode: "insensitive" } } },
+        { patient: { mrNumber: { contains: s, mode: "insensitive" } } },
+      ];
+    }
+    return await prisma.dischargeForm.findMany({
+      where,
+      include: {
+        patient: true,
+        visit: true,
+        medicines: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async getDischargeFormById(id: string) {
+    return await prisma.dischargeForm.findFirst({
+      where: { OR: [{ id }, { formNumber: id }] },
+      include: {
+        patient: true,
+        visit: true,
+        medicines: true,
+      },
+    });
+  }
+
+  async updateDischargeForm(id: string, data: any) {
+    const medicines = Array.isArray(data.medicines) ? data.medicines : null;
+    
+    if (medicines) {
+      await prisma.dischargeFormMedicine.deleteMany({ where: { dischargeFormId: id } });
+    }
+
+    return await prisma.dischargeForm.update({
+      where: { id },
+      data: {
+        dateOfAdmission: data.dateOfAdmission ? new Date(data.dateOfAdmission) : undefined,
+        presentingComplaint: data.presentingComplaint,
+        briefHistoryExamination: data.briefHistoryExamination,
+        diagnosticInvestigations: data.diagnosticInvestigations,
+        diagnosis: data.diagnosis,
+        procedureDone: data.procedureDone,
+        outcome: data.outcome,
+        dischargeAdvisedByDoctor: data.dischargeAdvisedByDoctor,
+        isLAMA: data.isLAMA,
+        dischargeDate: data.dischargeDate ? new Date(data.dischargeDate) : undefined,
+        dischargeCondition: data.dischargeCondition,
+        followUpDate: data.followUpDate ? new Date(data.followUpDate) : undefined,
+        followUpDepartment: data.followUpDepartment,
+        dietaryInstructions: data.dietaryInstructions,
+        doctorName: data.doctorName,
+        signDate: data.signDate ? new Date(data.signDate) : undefined,
+        signTime: data.signTime,
+        status: data.status,
+        ...(medicines
+          ? {
+              medicines: {
+                create: medicines.map((m: any, index: number) => ({
+                  srNo: index + 1,
+                  medicine: m.medicine || "",
+                  dose: m.dose || m.strength || null,
+                  route: m.route || null,
+                  frequency: m.frequency || null,
+                  timing: m.timing || null,
+                  duration: m.duration || null,
+                })),
+              },
+            }
+          : {}),
+      },
+      include: {
+        patient: true,
+        visit: true,
+        medicines: true,
+      },
+    });
+  }
+
+  // --- ADMISSION FORM ---
+  async createAdmissionForm(data: any) {
+    const count = await prisma.admissionForm.count();
+    const formNumber = data.formNumber || `ADM-${new Date().getFullYear()}-${String(count + 1).padStart(5, "0")}`;
+
+    return await prisma.admissionForm.create({
+      data: {
+        formNumber,
+        patientId: data.patientId,
+        visitId: data.visitId || null,
+        phcRegNumber: data.phcRegNumber || null,
+        dateOfAdmission: data.dateOfAdmission ? new Date(data.dateOfAdmission) : new Date(),
+        timeOfAdmission: data.timeOfAdmission || null,
+        maritalStatus: data.maritalStatus || null,
+        cnic: data.cnic || null,
+        provisionalDiagnosis: data.provisionalDiagnosis || null,
+        finalDiagnosis: data.finalDiagnosis || null,
+        admittedThrough: data.admittedThrough || null,
+        opdErMrNo: data.opdErMrNo || null,
+        dateOfDischargeRefer: data.dateOfDischargeRefer ? new Date(data.dateOfDischargeRefer) : null,
+        timeOfDischargeRefer: data.timeOfDischargeRefer || null,
+        consentName: data.consentName || null,
+        consentRelation: data.consentRelation || null,
+        consentSigned: data.consentSigned ?? true,
+        status: data.status || "FINALIZED",
+        createdById: data.createdById || null,
+      },
+      include: {
+        patient: true,
+        visit: true,
+      },
+    });
+  }
+
+  async getAdmissionForms(query?: { patientId?: string; search?: string }) {
+    const where: any = {};
+    if (query?.patientId) {
+      where.patientId = query.patientId;
+    }
+    if (query?.search) {
+      const s = query.search.trim();
+      where.OR = [
+        { formNumber: { contains: s, mode: "insensitive" } },
+        { patient: { fullName: { contains: s, mode: "insensitive" } } },
+        { patient: { mrNumber: { contains: s, mode: "insensitive" } } },
+      ];
+    }
+    return await prisma.admissionForm.findMany({
+      where,
+      include: {
+        patient: true,
+        visit: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async getAdmissionFormById(id: string) {
+    return await prisma.admissionForm.findFirst({
+      where: { OR: [{ id }, { formNumber: id }] },
+      include: {
+        patient: true,
+        visit: true,
+      },
+    });
+  }
+
+  async updateAdmissionForm(id: string, data: any) {
+    return await prisma.admissionForm.update({
+      where: { id },
+      data: {
+        phcRegNumber: data.phcRegNumber,
+        dateOfAdmission: data.dateOfAdmission ? new Date(data.dateOfAdmission) : undefined,
+        timeOfAdmission: data.timeOfAdmission,
+        maritalStatus: data.maritalStatus,
+        cnic: data.cnic,
+        provisionalDiagnosis: data.provisionalDiagnosis,
+        finalDiagnosis: data.finalDiagnosis,
+        admittedThrough: data.admittedThrough,
+        opdErMrNo: data.opdErMrNo,
+        dateOfDischargeRefer: data.dateOfDischargeRefer ? new Date(data.dateOfDischargeRefer) : undefined,
+        timeOfDischargeRefer: data.timeOfDischargeRefer,
+        consentName: data.consentName,
+        consentRelation: data.consentRelation,
+        consentSigned: data.consentSigned,
+        status: data.status,
+      },
+      include: {
+        patient: true,
+        visit: true,
+      },
+    });
+  }
+
+  // --- OPERATION NOTES ---
+  async createOperationNote(data: any) {
+    const count = await prisma.operationNote.count();
+    const formNumber = data.formNumber || `OP-${new Date().getFullYear()}-${String(count + 1).padStart(5, "0")}`;
+
+    return await prisma.operationNote.create({
+      data: {
+        formNumber,
+        patientId: data.patientId,
+        visitId: data.visitId || null,
+        operationDate: data.operationDate ? new Date(data.operationDate) : new Date(),
+        operationTime: data.operationTime || null,
+        surgeonName: data.surgeonName || "",
+        assistantTeamName: data.assistantTeamName || null,
+        anesthetistName: data.anesthetistName || null,
+        anesthesiaType: data.anesthesiaType || null,
+        incision: data.incision || null,
+        procedureDetails: data.procedureDetails || null,
+        findings: data.findings || null,
+        drain: data.drain || null,
+        specimenRemoved: data.specimenRemoved || null,
+        histopathology: data.histopathology || null,
+        bloodLoss: data.bloodLoss || null,
+        transfusion: data.transfusion || null,
+        uneventfulDevelopment: data.uneventfulDevelopment || null,
+        conditionAtEnd: data.conditionAtEnd || null,
+        postOpOrders: data.postOpOrders || null,
+        signDate: data.signDate ? new Date(data.signDate) : null,
+        signTime: data.signTime || null,
+        status: data.status || "FINALIZED",
+        createdById: data.createdById || null,
+      },
+      include: {
+        patient: true,
+        visit: true,
+      },
+    });
+  }
+
+  async getOperationNotes(query?: { patientId?: string; search?: string }) {
+    const where: any = {};
+    if (query?.patientId) {
+      where.patientId = query.patientId;
+    }
+    if (query?.search) {
+      const s = query.search.trim();
+      where.OR = [
+        { formNumber: { contains: s, mode: "insensitive" } },
+        { surgeonName: { contains: s, mode: "insensitive" } },
+        { patient: { fullName: { contains: s, mode: "insensitive" } } },
+        { patient: { mrNumber: { contains: s, mode: "insensitive" } } },
+      ];
+    }
+    return await prisma.operationNote.findMany({
+      where,
+      include: {
+        patient: true,
+        visit: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async getOperationNoteById(id: string) {
+    return await prisma.operationNote.findFirst({
+      where: { OR: [{ id }, { formNumber: id }] },
+      include: {
+        patient: true,
+        visit: true,
+      },
+    });
+  }
+
+  async updateOperationNote(id: string, data: any) {
+    return await prisma.operationNote.update({
+      where: { id },
+      data: {
+        operationDate: data.operationDate ? new Date(data.operationDate) : undefined,
+        operationTime: data.operationTime,
+        surgeonName: data.surgeonName,
+        assistantTeamName: data.assistantTeamName,
+        anesthetistName: data.anesthetistName,
+        anesthesiaType: data.anesthesiaType,
+        incision: data.incision,
+        procedureDetails: data.procedureDetails,
+        findings: data.findings,
+        drain: data.drain,
+        specimenRemoved: data.specimenRemoved,
+        histopathology: data.histopathology,
+        bloodLoss: data.bloodLoss,
+        transfusion: data.transfusion,
+        uneventfulDevelopment: data.uneventfulDevelopment,
+        conditionAtEnd: data.conditionAtEnd,
+        postOpOrders: data.postOpOrders,
+        signDate: data.signDate ? new Date(data.signDate) : undefined,
+        signTime: data.signTime,
+        status: data.status,
+      },
+      include: {
+        patient: true,
+        visit: true,
+      },
+    });
+  }
+
+  // --- DOCTOR NOTES ---
+  async createDoctorNote(data: any) {
+    const count = await prisma.doctorNote.count();
+    const formNumber = data.formNumber || `DN-${new Date().getFullYear()}-${String(count + 1).padStart(5, "0")}`;
+
+    return await prisma.doctorNote.create({
+      data: {
+        formNumber,
+        patientId: data.patientId,
+        visitId: data.visitId || null,
+        noteDate: data.noteDate ? new Date(data.noteDate) : new Date(),
+        noteTime: data.noteTime || null,
+        notes: data.notes || "",
+        doctorName: data.doctorName || "",
+        signDate: data.signDate ? new Date(data.signDate) : null,
+        signTime: data.signTime || null,
+        status: data.status || "FINALIZED",
+        createdById: data.createdById || null,
+      },
+      include: {
+        patient: true,
+        visit: true,
+      },
+    });
+  }
+
+  async getDoctorNotes(query?: { patientId?: string; doctorName?: string; search?: string }) {
+    const where: any = {};
+    if (query?.patientId) {
+      where.patientId = query.patientId;
+    }
+    if (query?.doctorName) {
+      where.doctorName = { contains: query.doctorName, mode: "insensitive" };
+    }
+    if (query?.search) {
+      const s = query.search.trim();
+      where.OR = [
+        { formNumber: { contains: s, mode: "insensitive" } },
+        { doctorName: { contains: s, mode: "insensitive" } },
+        { patient: { fullName: { contains: s, mode: "insensitive" } } },
+        { patient: { mrNumber: { contains: s, mode: "insensitive" } } },
+      ];
+    }
+    return await prisma.doctorNote.findMany({
+      where,
+      include: {
+        patient: true,
+        visit: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async getDoctorNoteById(id: string) {
+    return await prisma.doctorNote.findFirst({
+      where: { OR: [{ id }, { formNumber: id }] },
+      include: {
+        patient: true,
+        visit: true,
+      },
+    });
+  }
+
+  async updateDoctorNote(id: string, data: any) {
+    return await prisma.doctorNote.update({
+      where: { id },
+      data: {
+        noteDate: data.noteDate ? new Date(data.noteDate) : undefined,
+        noteTime: data.noteTime,
+        notes: data.notes,
+        doctorName: data.doctorName,
+        signDate: data.signDate ? new Date(data.signDate) : undefined,
+        signTime: data.signTime,
+        status: data.status,
+      },
+      include: {
+        patient: true,
+        visit: true,
+      },
+    });
+  }
+}
+
+export const hospitalFormsRepository = new HospitalFormsRepository();

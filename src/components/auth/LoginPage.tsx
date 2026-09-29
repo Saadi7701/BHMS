@@ -123,6 +123,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         portal: data.user.portal || roleToPortal(data.user.role),
         token: data.token,
         consultantId: data.user.consultantId,
+        consultantDbId: data.user.consultantDbId,
       };
 
       onLoginSuccess(userSession);

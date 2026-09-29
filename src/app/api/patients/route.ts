@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
-import { connectToProductionDatabase } from "@/lib/mongodb";
+import { prisma } from "@/lib/prisma";
 import { patientRepository } from "@/repositories/PatientRepository";
-import mongoose from "mongoose";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("q") || "";
 
-    await connectToProductionDatabase();
     const patients = await patientRepository.searchPatients(query);
-
     return NextResponse.json({ patients }, { status: 200 });
   } catch (error: any) {
     console.error("[Patients API GET Error]:", error);
@@ -32,16 +29,14 @@ export async function POST(req: Request) {
       );
     }
 
-    await connectToProductionDatabase();
-
-    // Generate unique MR Number if missing or if passed mrNumber already exists
     let mrNumber = body.mrNumber || `MR-${Date.now().toString().slice(-6)}`;
     const existing = await patientRepository.findByMrNumber(mrNumber);
     if (existing) {
       mrNumber = `MR-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
     }
 
-    const dummyUserObjectId = new mongoose.Types.ObjectId();
+    const adminUser = await prisma.user.findFirst({ where: { role: "ADMIN" } });
+    const createdBy = adminUser ? adminUser.id : "";
 
     const newPatient = await patientRepository.createPatient({
       mrNumber,
@@ -53,10 +48,10 @@ export async function POST(req: Request) {
       cnic: body.cnic && body.cnic.trim() ? body.cnic.trim() : undefined,
       address: body.address || "",
       bloodGroup: body.bloodGroup || "UNKNOWN",
-      createdBy: dummyUserObjectId,
+      createdBy,
     });
 
-    console.log(`[MongoDB Success] Patient ${newPatient.fullName} (${newPatient.mrNumber}) saved to Atlas!`);
+    console.log(`[Supabase PG Success] Patient ${newPatient.fullName} (${newPatient.mrNumber}) saved to PostgreSQL!`);
 
     return NextResponse.json(
       { message: "Patient registered successfully", patient: newPatient },

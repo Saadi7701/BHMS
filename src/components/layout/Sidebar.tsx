@@ -58,11 +58,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           { id: "patient_search", label: "Search & Register Patient", icon: Search },
           { id: "new_visit", label: "New Encounter & Fee", icon: Calendar },
           { id: "ot_gyne_reg", label: "OT & Gyne Admission", icon: Bed },
+          { id: "hospital_forms", label: "Hospital Forms", icon: FileText },
         ];
       case "CONSULTANT":
         return [
           { id: "queue", label: "Waiting Patient Queue", icon: Stethoscope },
           { id: "checked_queue", label: "Daily Checked Patients Queue", icon: CheckCircle2 },
+          { id: "doctor_notes", label: "Doctor Notes", icon: FileText },
           { id: "lab_requests", label: "Diagnostic Requests Queue", icon: TestTube },
           { id: "report_review", label: "Lab & Scan Reports Inbox", icon: FileSpreadsheet },
         ];

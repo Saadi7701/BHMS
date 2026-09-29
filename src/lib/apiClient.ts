@@ -474,3 +474,144 @@ export async function createMedicineApi(medicine: MedicineRecord): Promise<boole
     return false;
   }
 }
+
+// --- HOSPITAL FORMS CLIENT HELPERS ---
+export async function fetchReferralFormsFromApi(query?: string): Promise<any[]> {
+  try {
+    const url = query ? `/api/forms/referral?q=${encodeURIComponent(query)}` : "/api/forms/referral";
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const data = await res.json();
+    return data.forms || [];
+  } catch (err: any) {
+    console.warn("[API Client] Error fetching referral forms:", err.message);
+    return [];
+  }
+}
+
+export async function createReferralFormApi(formData: any): Promise<{ success: boolean; form?: any; error?: string }> {
+  try {
+    const res = await fetch("/api/forms/referral", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
+    const data = await res.json();
+    if (!res.ok) return { success: false, error: data.error };
+    return { success: true, form: data.form };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function fetchDischargeFormsFromApi(query?: string): Promise<any[]> {
+  try {
+    const url = query ? `/api/forms/discharge?q=${encodeURIComponent(query)}` : "/api/forms/discharge";
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const data = await res.json();
+    return data.forms || [];
+  } catch (err: any) {
+    console.warn("[API Client] Error fetching discharge forms:", err.message);
+    return [];
+  }
+}
+
+export async function createDischargeFormApi(formData: any): Promise<{ success: boolean; form?: any; error?: string }> {
+  try {
+    const res = await fetch("/api/forms/discharge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
+    const data = await res.json();
+    if (!res.ok) return { success: false, error: data.error };
+    return { success: true, form: data.form };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function fetchAdmissionFormsFromApi(query?: string): Promise<any[]> {
+  try {
+    const url = query ? `/api/forms/admission?q=${encodeURIComponent(query)}` : "/api/forms/admission";
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const data = await res.json();
+    return data.forms || [];
+  } catch (err: any) {
+    console.warn("[API Client] Error fetching admission forms:", err.message);
+    return [];
+  }
+}
+
+export async function createAdmissionFormApi(formData: any): Promise<{ success: boolean; form?: any; error?: string }> {
+  try {
+    const res = await fetch("/api/forms/admission", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
+    const data = await res.json();
+    if (!res.ok) return { success: false, error: data.error };
+    return { success: true, form: data.form };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function fetchOperationNotesFromApi(query?: string): Promise<any[]> {
+  try {
+    const url = query ? `/api/forms/operation-notes?q=${encodeURIComponent(query)}` : "/api/forms/operation-notes";
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const data = await res.json();
+    return data.forms || [];
+  } catch (err: any) {
+    console.warn("[API Client] Error fetching operation notes:", err.message);
+    return [];
+  }
+}
+
+export async function createOperationNoteApi(formData: any): Promise<{ success: boolean; form?: any; error?: string }> {
+  try {
+    const res = await fetch("/api/forms/operation-notes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
+    const data = await res.json();
+    if (!res.ok) return { success: false, error: data.error };
+    return { success: true, form: data.form };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function fetchDoctorNotesFromApi(query?: string): Promise<any[]> {
+  try {
+    const url = query ? `/api/forms/doctor-notes?q=${encodeURIComponent(query)}` : "/api/forms/doctor-notes";
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const data = await res.json();
+    return data.forms || [];
+  } catch (err: any) {
+    console.warn("[API Client] Error fetching doctor notes:", err.message);
+    return [];
+  }
+}
+
+export async function createDoctorNoteApi(formData: any): Promise<{ success: boolean; form?: any; error?: string }> {
+  try {
+    const res = await fetch("/api/forms/doctor-notes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
+    const data = await res.json();
+    if (!res.ok) return { success: false, error: data.error };
+    return { success: true, form: data.form };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}

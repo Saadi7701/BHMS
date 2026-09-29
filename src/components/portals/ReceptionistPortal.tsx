@@ -31,6 +31,7 @@ import {
   AdmissionRecord,
   CashTransactionRecord,
 } from "../../lib/mockDataStore";
+import { HospitalFormsManager } from "../forms/HospitalFormsManager";
 
 interface ReceptionistPortalProps {
   activeTab: string;
@@ -845,6 +846,11 @@ export const ReceptionistPortal: React.FC<ReceptionistPortalProps> = ({
             </table>
           </div>
         </div>
+      )}
+
+      {/* VIEW: HOSPITAL FORMS */}
+      {activeTab === "hospital_forms" && (
+        <HospitalFormsManager patients={patients} />
       )}
 
       {/* Modal: Register Patient Profile */}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { connectToProductionDatabase } from "@/lib/mongodb";
 import { userRepository } from "@/repositories/UserRepository";
+import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { roleToPortal } from "@/lib/authSession";
 
@@ -14,8 +14,6 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
-    await connectToProductionDatabase();
 
     const user = await userRepository.findByUsername(username);
 
@@ -44,6 +42,23 @@ export async function POST(req: Request) {
 
     const portal = roleToPortal(user.role);
 
+    // For consultants, look up their real Consultant record UUID so the portal
+    // can filter the waiting queue correctly using the database ID.
+    let consultantId: string | undefined;
+    let consultantDbId: string | undefined;
+    if (user.role === "CONSULTANT") {
+      const consultantRecord = await prisma.consultant.findFirst({
+        where: { userId: user._id.toString() },
+      });
+      if (consultantRecord) {
+        consultantDbId = consultantRecord.id;
+      }
+      // Legacy frontend IDs for backwards compat
+      if (user.username === "dr_bilal") consultantId = "doc-1";
+      else if (user.username === "dr_sarah") consultantId = "doc-2";
+      else consultantId = consultantDbId;
+    }
+
     return NextResponse.json(
       {
         message: "Login successful",
@@ -54,7 +69,8 @@ export async function POST(req: Request) {
           fullName: user.fullName,
           role: user.role,
           portal,
-          consultantId: user.username === "dr_bilal" ? "doc-1" : user.username === "dr_sarah" ? "doc-2" : undefined,
+          consultantId,
+          consultantDbId,
         },
       },
       { status: 200 }

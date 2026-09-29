@@ -1,22 +1,23 @@
 import { NextResponse } from "next/server";
-import { connectToProductionDatabase } from "@/lib/mongodb";
+import { prisma } from "@/lib/prisma";
 import { ultrasoundRepository } from "@/repositories/UltrasoundRepository";
 import { cashRepository } from "@/repositories/CashRepository";
-import { UltrasoundOrderModel } from "@/models/UltrasoundOrder";
-import mongoose from "mongoose";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patientId");
 
-    await connectToProductionDatabase();
-
     let orders;
     if (patientId) {
       orders = await ultrasoundRepository.findOrdersByPatient(patientId);
     } else {
-      orders = await UltrasoundOrderModel.find().sort({ createdAt: -1 }).limit(100).exec();
+      const records = await prisma.ultrasoundOrder.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 200,
+        include: { reports: true },
+      });
+      orders = records.map((o) => ({ ...o, _id: o.id }));
     }
 
     return NextResponse.json({ ultrasoundOrders: orders }, { status: 200 });
@@ -34,55 +35,43 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const orderNumber = body.orderNumber || body.usOrderNumber || `US-${Date.now().toString().slice(-6)}`;
-    if (!body.patientId || !body.scanType) {
+    if (!body.patientId || (!body.scanType && !body.requestedExam)) {
       return NextResponse.json(
         { error: "Patient ID and Scan Type are required." },
         { status: 400 }
       );
     }
 
-    await connectToProductionDatabase();
-
-    const patientObjectId = mongoose.Types.ObjectId.isValid(body.patientId)
-      ? new mongoose.Types.ObjectId(body.patientId)
-      : new mongoose.Types.ObjectId();
-
-    const visitObjectId = mongoose.Types.ObjectId.isValid(body.visitId)
-      ? new mongoose.Types.ObjectId(body.visitId)
-      : new mongoose.Types.ObjectId();
-
-    const consultantObjectId = mongoose.Types.ObjectId.isValid(body.consultantId)
-      ? new mongoose.Types.ObjectId(body.consultantId)
-      : new mongoose.Types.ObjectId();
+    const fee = Number(body.fee) || Number(body.totalFee) || 0;
 
     const newOrder = await ultrasoundRepository.createOrder({
       orderNumber,
-      patientId: patientObjectId,
+      patientId: body.patientId,
       patientName: body.patientName || "Patient",
       mrNumber: body.mrNumber || "MR-0000",
-      visitId: visitObjectId,
-      consultantId: consultantObjectId,
+      visitId: body.visitId || "",
+      consultantId: body.consultantId || "",
       consultantName: body.consultantName || "Doctor",
-      requestedExam: body.scanType,
+      requestedExam: body.scanType || body.requestedExam,
       clinicalIndication: body.clinicalIndication || "",
       priority: body.priority === "URGENT" ? "URGENT" : "NORMAL",
       status: "ORDERED",
-      totalFee: Number(body.fee) || 0,
+      totalFee: fee,
       requestDate: new Date(),
     });
 
-    if (Number(body.fee) > 0) {
+    if (fee > 0) {
       await cashRepository.createTransaction({
         transactionNumber: `TXN-US-${Date.now().toString().slice(-6)}`,
         transactionType: "INCOME",
         category: "ULTRASOUND_SCAN",
         department: "Ultrasound Department",
-        amount: Number(body.fee),
-        paymentMethod: "CASH",
-        description: `Ultrasound scan fee for ${body.scanType}`,
-        patientId: patientObjectId,
-        visitId: visitObjectId,
-        createdById: consultantObjectId,
+        amount: fee,
+        paymentMethod: body.paymentMethod || "CASH",
+        description: `Ultrasound scan fee for ${body.scanType || body.requestedExam}`,
+        patientId: newOrder.patientId,
+        visitId: newOrder.visitId,
+        createdById: newOrder.consultantId,
         transactionDate: new Date(),
       });
     }
@@ -109,23 +98,17 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Ultrasound Order ID is required." }, { status: 400 });
     }
 
-    await connectToProductionDatabase();
-
     let updatedOrder;
     if (action === "SUBMIT_REPORT") {
-      const updatePayload: Record<string, any> = {
+      const fields: Record<string, any> = {
         status: "SUBMITTED_TO_CONSULTANT",
         findingsV1: findings || "Scan performed",
         attachedFileName: pdfFileName || "ULTRASOUND_SCAN.pdf",
       };
       if (imageBase64) {
-        updatePayload.attachedImageBase64 = imageBase64;
+        fields.attachedImageBase64 = imageBase64;
       }
-      if (mongoose.Types.ObjectId.isValid(id)) {
-        updatedOrder = await UltrasoundOrderModel.findByIdAndUpdate(id, { $set: updatePayload }, { new: true }).exec();
-      } else {
-        updatedOrder = await UltrasoundOrderModel.findOneAndUpdate({ orderNumber: id }, { $set: updatePayload }, { new: true }).exec();
-      }
+      updatedOrder = await ultrasoundRepository.updateOrderFields(id, fields);
     } else if (status) {
       updatedOrder = await ultrasoundRepository.updateOrderStatus(id, status);
     }

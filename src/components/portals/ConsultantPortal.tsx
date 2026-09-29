@@ -1,4 +1,5 @@
 "use client";
+import { AuthSessionUser } from '@/lib/authSession';
 import React, { useState, useEffect } from 'react';
 import {
   Stethoscope,
@@ -29,6 +30,7 @@ import {
   CashTransactionRecord,
   ConsultantUser,
 } from '@/lib/mockDataStore';
+import { DoctorNotesManager } from '../forms/DoctorNotesManager';
 
 const mockMedicines = [
   'Tab. Panadol 500mg',
@@ -40,6 +42,7 @@ const mockMedicines = [
 
 interface ConsultantPortalProps {
   activeTab?: string;
+  sessionUser?: AuthSessionUser | null;   // Logged-in consultant from global auth session
   visits: VisitRecord[];
   prescriptions?: PrescriptionRecord[];
   labOrders: LabOrderRecord[];
@@ -69,6 +72,7 @@ interface FileModal {
 
 export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
   activeTab: propActiveTab,
+  sessionUser,
   visits,
   labOrders,
   ultrasoundOrders,
@@ -80,7 +84,11 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
   onConsultantLogin,
   onConsultantLogout,
 }) => {
-  const [loggedInConsultantId, setLoggedInConsultantId] = useState<string | null>('doc-1');
+  // Use the global auth session to identify which consultant is viewing this portal.
+  // Falls back to 'doc-1' for legacy compatibility when sessionUser is not provided.
+  const [loggedInConsultantId, setLoggedInConsultantId] = useState<string | null>(
+    sessionUser?.consultantId || 'doc-1'
+  );
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -148,6 +156,11 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
   };
 
   const isConsultantForVisit = (v: VisitRecord) => {
+    // Match by real Postgres UUID (consultantDbId) — most reliable
+    if (sessionUser?.consultantDbId && v.consultantId === sessionUser.consultantDbId) {
+      return true;
+    }
+    // Match by legacy frontend ID (doc-1, doc-2)
     const isDoc1Match =
       selectedConsultant === "doc-1" &&
       (v.consultantId === "doc-1" ||
@@ -156,8 +169,12 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
     const isDoc2Match =
       selectedConsultant === "doc-2" &&
       (v.consultantId === "doc-2" || v.consultantName?.toLowerCase().includes("sarah"));
+    // Match by full name from session
+    const isNameMatch =
+      sessionUser?.fullName &&
+      v.consultantName?.toLowerCase().includes(sessionUser.fullName.toLowerCase().split(' ').slice(-1)[0]);
     const isGenericMatch = v.consultantId === selectedConsultant;
-    return isDoc1Match || isDoc2Match || isGenericMatch;
+    return isDoc1Match || isDoc2Match || isGenericMatch || !!isNameMatch;
   };
 
   // 1. Waiting Queue (Only WAITING, REGISTERED, WITH_CONSULTANT)
@@ -510,6 +527,18 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
             <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold">
               {diagnosticRequestVisits.length}
             </span>
+          </button>
+
+          <button
+            onClick={() => setInternalTab('doctor_notes')}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+              currentTab === 'doctor_notes'
+                ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shadow-sm'
+                : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
+          >
+            <FileText className="w-4 h-4 text-purple-500" />
+            <span>Doctor Notes</span>
           </button>
 
           <button
@@ -937,7 +966,7 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
               </table>
             </div>
           </div>
-        ) : (
+        ) : currentTab === 'report_review' ? (
           /* ── 4. DIAGNOSTIC REPORTS INBOX ── */
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
@@ -1021,7 +1050,9 @@ export const ConsultantPortal: React.FC<ConsultantPortalProps> = ({
               </table>
             </div>
           </div>
-        )}
+        ) : currentTab === 'doctor_notes' ? (
+          <DoctorNotesManager doctorName={consultantName} visits={visits} />
+        ) : null}
       </div>
 
       {/* ── MODALS ── */}

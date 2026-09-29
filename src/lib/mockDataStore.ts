@@ -7,6 +7,7 @@ export interface PatientRecord {
   age: number;
   phone: string;
   cnic: string;
+  address?: string;
   bloodGroup: string;
   notes?: string;
   registrationDate: string;

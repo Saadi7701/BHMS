@@ -5,7 +5,8 @@ export interface AuthSessionUser {
   role: "ADMIN" | "CONSULTANT" | "RECEPTIONIST" | "LAB_STAFF" | "PHARMACY_STAFF" | "ULTRASOUND_STAFF";
   portal: "ADMIN" | "CONSULTANT" | "RECEPTIONIST" | "LABORATORY" | "PHARMACY" | "ULTRASOUND";
   token?: string;
-  consultantId?: string;
+  consultantId?: string;    // Legacy frontend ID: doc-1, doc-2 etc.
+  consultantDbId?: string;  // Real PostgreSQL UUID of the Consultant record
 }
 
 const SESSION_KEY = "bhms_user_session";

@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server";
-import { connectToProductionDatabase } from "@/lib/mongodb";
+import { prisma } from "@/lib/prisma";
 import { prescriptionRepository } from "@/repositories/PrescriptionRepository";
-import { PrescriptionModel } from "@/models/Prescription";
-import mongoose from "mongoose";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patientId");
 
-    await connectToProductionDatabase();
-
     let prescriptions;
     if (patientId) {
       prescriptions = await prescriptionRepository.findByPatient(patientId);
     } else {
-      prescriptions = await PrescriptionModel.find().sort({ createdAt: -1 }).limit(100).exec();
+      const records = await prisma.prescription.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 200,
+        include: { items: true },
+      });
+      prescriptions = records.map((p) => ({ ...p, _id: p.id }));
     }
 
     return NextResponse.json({ prescriptions }, { status: 200 });
@@ -39,38 +40,26 @@ export async function POST(req: Request) {
       );
     }
 
-    await connectToProductionDatabase();
-
-    const patientObjectId = mongoose.Types.ObjectId.isValid(body.patientId)
-      ? new mongoose.Types.ObjectId(body.patientId)
-      : new mongoose.Types.ObjectId();
-
-    const visitObjectId = mongoose.Types.ObjectId.isValid(body.visitId)
-      ? new mongoose.Types.ObjectId(body.visitId)
-      : new mongoose.Types.ObjectId();
-
-    const consultantObjectId = mongoose.Types.ObjectId.isValid(body.consultantId)
-      ? new mongoose.Types.ObjectId(body.consultantId)
-      : new mongoose.Types.ObjectId();
+    const itemsInput = (body.items || body.medicines || []).map((m: any) => ({
+      medicineName: m.medicineName || m.name || "Medicine",
+      dosage: m.dosage || "1-0-1",
+      frequency: m.frequency || "BID",
+      duration: m.duration || `${m.durationDays || 5} days`,
+      instructions: m.instructions || "",
+    }));
 
     const newPrescription = await prescriptionRepository.createPrescription({
-      patientId: patientObjectId,
+      patientId: body.patientId,
       patientName: body.patientName || "Patient",
       mrNumber: body.mrNumber || "MR-0000",
-      visitId: visitObjectId,
-      consultantId: consultantObjectId,
+      visitId: body.visitId || "",
+      consultantId: body.consultantId,
       consultantName: body.consultantName || "Dr. Bilal Ahmad",
       diagnosis: body.diagnosis || "General Consultation",
-      notes: body.instructions || body.clinicalNotes || "",
+      notes: body.notes || body.instructions || body.clinicalNotes || "",
       isDispensed: false,
       prescriptionDate: new Date(),
-      items: (body.medicines || []).map((m: any) => ({
-        medicineName: m.medicineName || m.name || "Medicine",
-        dosage: m.dosage || "1-0-1",
-        frequency: m.frequency || "BID",
-        duration: `${m.durationDays || 5} days`,
-        instructions: m.instructions || "",
-      })),
+      items: itemsInput,
     });
 
     return NextResponse.json(
@@ -89,13 +78,12 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { id, isDispensed } = body;
+    const { id } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Prescription ID is required." }, { status: 400 });
     }
 
-    await connectToProductionDatabase();
     const updated = await prescriptionRepository.markDispensed(id);
 
     return NextResponse.json(

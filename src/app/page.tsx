@@ -267,7 +267,7 @@ export default function Home() {
   const handleSubmitUltrasoundResult = async (
     usOrderId: string,
     findings: string,
-    pdfFileName?: string,
+    impressionOrPdf?: string,
     imageBase64?: string
   ) => {
     try {
@@ -278,7 +278,7 @@ export default function Home() {
           id: usOrderId,
           action: "SUBMIT_REPORT",
           findings,
-          pdfFileName,
+          pdfFileName: impressionOrPdf,
           imageBase64,
         }),
       });
@@ -449,6 +449,7 @@ export default function Home() {
           {activePortal === "CONSULTANT" && (
             <ConsultantPortal
               activeTab={activeTab}
+              sessionUser={currentUser}
               visits={visits}
               prescriptions={prescriptions}
               labOrders={labOrders}

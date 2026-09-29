@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import { connectToProductionDatabase } from "@/lib/mongodb";
 import { userRepository } from "@/repositories/UserRepository";
 import { roleToPortal } from "@/lib/authSession";
 import bcrypt from "bcryptjs";
 
 export async function GET() {
   try {
-    await connectToProductionDatabase();
     const users = await userRepository.findAll();
 
     const formattedUsers = users.map((u) => ({
@@ -42,8 +40,6 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
-    await connectToProductionDatabase();
 
     const existingUser = await userRepository.findByUsername(username);
     if (existingUser) {

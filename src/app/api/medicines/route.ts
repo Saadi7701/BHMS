@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
-import { connectToProductionDatabase } from "@/lib/mongodb";
 import { medicineRepository } from "@/repositories/MedicineRepository";
-import { MedicineModel } from "@/models/Medicine";
 
 export async function GET() {
   try {
-    await connectToProductionDatabase();
     const medicines = await medicineRepository.findAllMedicines();
     return NextResponse.json({ medicines }, { status: 200 });
   } catch (error: any) {
@@ -28,19 +25,22 @@ export async function POST(req: Request) {
       );
     }
 
-    await connectToProductionDatabase();
-
     const brandName = body.brandName || body.name;
     const genericName = body.genericName || brandName;
+    const price = Number(body.unitPrice) || Number(body.salePrice) || 15;
+    const stock = Number(body.totalStockQuantity) || Number(body.availableQuantity) || 100;
 
     const newMedicine = await medicineRepository.createMedicine({
       brandName,
       genericName,
       category: body.category || "Tablet",
       manufacturer: body.manufacturer || "General Pharma",
-      purchasePrice: Number(body.purchasePrice) || Number(body.unitPrice) * 0.7 || 10,
-      salePrice: Number(body.unitPrice) || Number(body.salePrice) || 15,
-      availableQuantity: Number(body.totalStockQuantity) || Number(body.availableQuantity) || 100,
+      unitPrice: price,
+      purchasePrice: Number(body.purchasePrice) || price * 0.7,
+      salePrice: price,
+      currentStock: stock,
+      availableQuantity: stock,
+      minimumStock: Number(body.reorderLevel) || 20,
       reorderLevel: Number(body.reorderLevel) || 20,
     });
 
@@ -66,17 +66,10 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Medicine ID and quantity are required." }, { status: 400 });
     }
 
-    await connectToProductionDatabase();
-    const med = await medicineRepository.findMedicineById(id);
-    if (!med) {
-      return NextResponse.json({ error: "Medicine not found." }, { status: 404 });
-    }
-
-    med.availableQuantity += Number(quantityPurchased);
-    await med.save();
+    const updated = await medicineRepository.updateStock(id, Number(quantityPurchased));
 
     return NextResponse.json(
-      { message: "Inventory stock updated successfully", medicine: med },
+      { message: "Inventory stock updated successfully", medicine: updated },
       { status: 200 }
     );
   } catch (error: any) {

@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-import { connectToProductionDatabase } from "@/lib/mongodb";
+import { prisma } from "@/lib/prisma";
 import { visitRepository } from "@/repositories/VisitRepository";
 import { cashRepository } from "@/repositories/CashRepository";
-import { PatientVisitModel } from "@/models/PatientVisit";
-import mongoose from "mongoose";
 
 export async function GET(req: Request) {
   try {
@@ -11,15 +9,19 @@ export async function GET(req: Request) {
     const consultantId = searchParams.get("consultantId");
     const status = searchParams.get("status");
 
-    await connectToProductionDatabase();
-
     let visits;
     if (consultantId) {
       visits = await visitRepository.findByConsultant(consultantId, status || undefined);
     } else {
-      const filter: Record<string, any> = {};
-      if (status) filter.status = status;
-      visits = await PatientVisitModel.find(filter).sort({ visitDate: -1 }).limit(100).exec();
+      const whereClause: any = {};
+      if (status) whereClause.status = status;
+
+      const records = await prisma.patientVisit.findMany({
+        where: whereClause,
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      });
+      visits = records.map((v) => ({ ...v, _id: v.id }));
     }
 
     return NextResponse.json({ visits }, { status: 200 });
@@ -43,8 +45,6 @@ export async function POST(req: Request) {
       );
     }
 
-    await connectToProductionDatabase();
-
     // Auto-generate unique visitNumber if missing or duplicate
     let visitNumber = body.visitNumber || `VIS-${Date.now().toString().slice(-6)}`;
     const existing = await visitRepository.findByVisitNumber(visitNumber);
@@ -52,25 +52,15 @@ export async function POST(req: Request) {
       visitNumber = `VIS-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
     }
 
-    const patientObjectId = mongoose.Types.ObjectId.isValid(body.patientId)
-      ? new mongoose.Types.ObjectId(body.patientId)
-      : new mongoose.Types.ObjectId();
-
-    const consultantObjectId = mongoose.Types.ObjectId.isValid(body.consultantId)
-      ? new mongoose.Types.ObjectId(body.consultantId)
-      : new mongoose.Types.ObjectId();
-
-    const receptionistObjectId = new mongoose.Types.ObjectId();
-
     const fee = Number(body.feeCharged) || Number(body.consultationFee) || 0;
     const received = Number(body.netCollectedAmount) || Number(body.amountReceived) || fee;
 
     const newVisit = await visitRepository.createVisit({
       visitNumber,
-      patientId: patientObjectId,
+      patientId: body.patientId,
       patientName: body.patientName || "Patient",
       mrNumber: body.mrNumber || "MR-0000",
-      consultantId: consultantObjectId,
+      consultantId: body.consultantId,
       consultantName: body.consultantName || "Dr. Bilal Ahmad",
       department: body.department || "OPD Reception",
       visitType: body.visitType || "OPD",
@@ -78,7 +68,7 @@ export async function POST(req: Request) {
       consultationFee: fee,
       amountReceived: received,
       paymentMethod: body.paymentMethod || "CASH",
-      receptionistId: receptionistObjectId,
+      receptionistId: body.receptionistId || "admin",
       status: body.status || "WAITING",
       visitDate: new Date(),
       arrivalTime: new Date(),
@@ -89,18 +79,18 @@ export async function POST(req: Request) {
         transactionNumber: `TXN-OPD-${Date.now().toString().slice(-6)}`,
         transactionType: "INCOME",
         category: "OPD_REGISTRATION",
-        department: "OPD Reception",
+        department: body.department || "OPD Reception",
         amount: received,
-        paymentMethod: "CASH",
+        paymentMethod: body.paymentMethod || "CASH",
         description: `OPD Fee collected for ${body.patientName || visitNumber}`,
-        patientId: patientObjectId,
-        visitId: newVisit._id as mongoose.Types.ObjectId,
-        createdById: receptionistObjectId,
+        patientId: newVisit.patientId,
+        visitId: newVisit._id,
+        createdById: newVisit.receptionistId,
         transactionDate: new Date(),
       });
     }
 
-    console.log(`[MongoDB Success] Visit ${visitNumber} for ${body.patientName} saved to Atlas!`);
+    console.log(`[Supabase PG Success] Visit ${visitNumber} for ${body.patientName} saved to PostgreSQL!`);
 
     return NextResponse.json(
       { message: "Visit created successfully", visit: newVisit },
@@ -124,7 +114,6 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Visit ID and status are required." }, { status: 400 });
     }
 
-    await connectToProductionDatabase();
     const updatedVisit = await visitRepository.updateStatus(id, status);
 
     return NextResponse.json(

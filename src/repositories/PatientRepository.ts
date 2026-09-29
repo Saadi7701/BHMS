@@ -1,44 +1,105 @@
-import { connectToProductionDatabase } from "../lib/mongodb";
-import { PatientModel, IPatient } from "../models/Patient";
+import { prisma } from "../lib/prisma";
 
 export class PatientRepository {
-  async findByMrNumber(mrNumber: string): Promise<IPatient | null> {
-    await connectToProductionDatabase();
-    return PatientModel.findOne({ mrNumber: mrNumber.trim() }).exec();
+  async findByMrNumber(mrNumber: string): Promise<any> {
+    const patient = await prisma.patient.findFirst({
+      where: { mrNumber: mrNumber.trim() },
+    });
+    if (!patient) return null;
+    return { ...patient, _id: patient.id };
   }
 
-  async findById(id: string): Promise<IPatient | null> {
-    await connectToProductionDatabase();
-    return PatientModel.findById(id).exec();
+  async findById(id: string): Promise<any> {
+    const patient = await prisma.patient.findFirst({
+      where: { OR: [{ id }, { legacyId: id }, { mrNumber: id }] },
+    });
+    if (!patient) return null;
+    return { ...patient, _id: patient.id };
   }
 
-  async createPatient(patientData: Partial<IPatient>): Promise<IPatient> {
-    await connectToProductionDatabase();
-    const patient = new PatientModel(patientData);
-    return patient.save();
-  }
+  async createPatient(patientData: any): Promise<any> {
+    let createdBy = patientData.createdBy ? patientData.createdBy.toString() : null;
 
-  async searchPatients(query: string): Promise<IPatient[]> {
-    await connectToProductionDatabase();
-    if (!query || query.trim() === "") {
-      return PatientModel.find().sort({ createdAt: -1 }).limit(100).exec();
+    // Ensure createdBy references a valid user in PostgreSQL
+    if (createdBy) {
+      const validUser = await prisma.user.findFirst({
+        where: { OR: [{ id: createdBy }, { legacyId: createdBy }] },
+      });
+      if (validUser) {
+        createdBy = validUser.id;
+      } else {
+        const firstAdmin = await prisma.user.findFirst({ where: { role: "ADMIN" } });
+        if (firstAdmin) {
+          createdBy = firstAdmin.id;
+        } else {
+          const defaultAdmin = await prisma.user.create({
+            data: {
+              username: "system_admin",
+              email: "admin@bilalhospital.com",
+              passwordHash: "hashed",
+              fullName: "System Admin",
+              role: "ADMIN",
+            },
+          });
+          createdBy = defaultAdmin.id;
+        }
+      }
+    } else {
+      const firstAdmin = await prisma.user.findFirst();
+      createdBy = firstAdmin ? firstAdmin.id : null;
     }
-    const regex = new RegExp(query.trim(), "i");
-    return PatientModel.find({
-      $or: [
-        { fullName: regex },
-        { mrNumber: regex },
-        { phone: regex },
-        { cnic: regex },
-      ],
-    })
-      .sort({ createdAt: -1 })
-      .exec();
+
+    const patient = await prisma.patient.create({
+      data: {
+        mrNumber: patientData.mrNumber.trim(),
+        fullName: patientData.fullName,
+        fatherHusbandName: patientData.fatherHusbandName || null,
+        gender: patientData.gender,
+        dob: patientData.dob || null,
+        age: Number(patientData.age || 0),
+        phone: patientData.phone,
+        address: patientData.address || null,
+        cnic: patientData.cnic ? patientData.cnic.trim() : null,
+        emergencyContact: patientData.emergencyContact || null,
+        bloodGroup: patientData.bloodGroup || null,
+        notes: patientData.notes || null,
+        createdBy: createdBy || "",
+      },
+    });
+    return { ...patient, _id: patient.id };
   }
 
-  async updatePatient(id: string, updateData: Partial<IPatient>): Promise<IPatient | null> {
-    await connectToProductionDatabase();
-    return PatientModel.findByIdAndUpdate(id, { $set: updateData }, { new: true }).exec();
+  async searchPatients(query: string): Promise<any[]> {
+    if (!query || query.trim() === "") {
+      const patients = await prisma.patient.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      });
+      return patients.map((p) => ({ ...p, _id: p.id }));
+    }
+
+    const q = query.trim();
+    const patients = await prisma.patient.findMany({
+      where: {
+        OR: [
+          { fullName: { contains: q, mode: "insensitive" } },
+          { mrNumber: { contains: q, mode: "insensitive" } },
+          { phone: { contains: q, mode: "insensitive" } },
+          { cnic: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return patients.map((p) => ({ ...p, _id: p.id }));
+  }
+
+  async updatePatient(id: string, updateData: any): Promise<any> {
+    const patient = await prisma.patient.update({
+      where: { id },
+      data: updateData,
+    });
+    return { ...patient, _id: patient.id };
   }
 }
 

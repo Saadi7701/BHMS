@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
-import { connectToProductionDatabase } from "@/lib/mongodb";
+import { prisma } from "@/lib/prisma";
 import { cashRepository } from "@/repositories/CashRepository";
-import { CashTransactionModel } from "@/models/CashTransaction";
-import mongoose from "mongoose";
 
 export async function GET() {
   try {
-    await connectToProductionDatabase();
-
-    const transactions = await CashTransactionModel.find()
-      .sort({ transactionDate: -1 })
-      .limit(100)
-      .exec();
+    const records = await prisma.cashTransaction.findMany({
+      orderBy: { transactionDate: "desc" },
+      take: 200,
+    });
+    const transactions = records.map((t) => ({ ...t, _id: t.id }));
 
     const todayClosing = await cashRepository.findDailyClosingByDate(new Date());
 
@@ -31,8 +28,6 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-
-    await connectToProductionDatabase();
 
     if (body.type === "DAILY_CLOSING") {
       const newClosing = await cashRepository.recordDailyClosing({
@@ -61,7 +56,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const dummyAdminId = new mongoose.Types.ObjectId();
+    const adminUser = await prisma.user.findFirst({ where: { role: "ADMIN" } });
+    const createdById = adminUser ? adminUser.id : "";
 
     const newTx = await cashRepository.createTransaction({
       transactionNumber: body.transactionNumber || body.receiptNumber || `TXN-${Date.now().toString().slice(-6)}`,
@@ -69,9 +65,9 @@ export async function POST(req: Request) {
       category: body.category,
       department: body.department || "General Operations",
       amount: Number(body.amount),
-      paymentMethod: body.paymentMode || "CASH",
+      paymentMethod: body.paymentMode || body.paymentMethod || "CASH",
       description: body.description || `Cash transaction for ${body.category}`,
-      createdById: dummyAdminId,
+      createdById,
       transactionDate: new Date(),
     });
 

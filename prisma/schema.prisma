@@ -3,12 +3,14 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
   id            String   @id @default(uuid())
+  legacyId      String?  @unique
   username      String   @unique
   email         String   @unique
   passwordHash  String
@@ -21,10 +23,18 @@ model User {
   consultantProfile Consultant?
   auditLogs         AuditLog[]
   cashTransactions  CashTransaction[]
+  inventoryTransactions InventoryTransaction[]
+  dispensedDispensings PharmacyDispensing[] @relation("DispensingUser")
+  referralForms     ReferralForm[]
+  dischargeForms    DischargeForm[]
+  admissionForms    AdmissionForm[]
+  operationNotes    OperationNote[]
+  doctorNotes       DoctorNote[]
 }
 
 model Consultant {
   id              String   @id @default(uuid())
+  legacyId        String?  @unique
   userId          String   @unique
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   specialty       String
@@ -45,6 +55,7 @@ model Consultant {
 
 model Patient {
   id                String   @id @default(uuid())
+  legacyId          String?  @unique
   mrNumber          String   @unique
   fullName          String
   fatherHusbandName String?
@@ -69,15 +80,25 @@ model Patient {
   cashTransactions CashTransaction[]
   otRecords        OTRecord[]
   gyneRecords      GyneRecord[]
+  pharmacyDispensings PharmacyDispensing[]
+  referralForms    ReferralForm[]
+  dischargeForms   DischargeForm[]
+  admissionForms   AdmissionForm[]
+  operationNotes   OperationNote[]
+  doctorNotes      DoctorNote[]
 }
 
 model PatientVisit {
   id              String   @id @default(uuid())
+  legacyId        String?  @unique
   visitNumber     String   @unique
   patientId       String
   patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientName     String?
+  mrNumber        String?
   consultantId    String
   consultant      Consultant @relation(fields: [consultantId], references: [id])
+  consultantName  String?
   visitDate       DateTime @default(now())
   arrivalTime     DateTime @default(now())
   department      String
@@ -99,10 +120,16 @@ model PatientVisit {
   cashTransactions CashTransaction[]
   otRecords        OTRecord[]
   gyneRecords      GyneRecord[]
+  referralForms    ReferralForm[]
+  dischargeForms   DischargeForm[]
+  admissionForms   AdmissionForm[]
+  operationNotes   OperationNote[]
+  doctorNotes      DoctorNote[]
 }
 
 model Consultation {
   id             String       @id @default(uuid())
+  legacyId       String?      @unique
   visitId        String
   visit          PatientVisit @relation(fields: [visitId], references: [id])
   patientId      String
@@ -127,12 +154,16 @@ model Consultation {
 
 model Prescription {
   id               String       @id @default(uuid())
+  legacyId         String?      @unique
   patientId        String
   patient          Patient      @relation(fields: [patientId], references: [id])
+  patientName      String?
+  mrNumber         String?
   visitId          String
   visit            PatientVisit @relation(fields: [visitId], references: [id])
   consultantId     String
   consultant       Consultant   @relation(fields: [consultantId], references: [id])
+  consultantName   String?
   consultationId   String?
   consultation     Consultation? @relation(fields: [consultationId], references: [id])
   diagnosis        String
@@ -148,6 +179,7 @@ model Prescription {
 
 model PrescriptionItem {
   id             String       @id @default(uuid())
+  legacyId       String?
   prescriptionId String
   prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
   medicineName   String
@@ -156,27 +188,37 @@ model PrescriptionItem {
   duration       String
   route          String?
   instructions   String?
-
-  dispensingItems PharmacyDispensingItem[]
 }
 
 model LabOrder {
-  id            String   @id @default(uuid())
-  orderNumber   String   @unique
-  patientId     String
-  patient       Patient  @relation(fields: [patientId], references: [id])
-  visitId       String
-  visit         PatientVisit @relation(fields: [visitId], references: [id])
-  consultantId  String
-  consultant    Consultant @relation(fields: [consultantId], references: [id])
-  testCategory  String
-  clinicalNotes String?
-  priority      String   @default("NORMAL")
-  status        String   @default("ORDERED") // ORDERED, SAMPLE_COLLECTED, PROCESSING, REPORT_PREPARED, SUBMITTED_TO_CONSULTANT, REVISION_REQUESTED, ACCEPTED
-  totalFee      Decimal  @default(0.0)
-  requestDate   DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  legacyId            String?  @unique
+  orderNumber         String   @unique
+  patientId           String
+  patient             Patient  @relation(fields: [patientId], references: [id])
+  patientName         String?
+  mrNumber            String?
+  visitId             String
+  visit               PatientVisit @relation(fields: [visitId], references: [id])
+  consultantId        String
+  consultant          Consultant @relation(fields: [consultantId], references: [id])
+  consultantName      String?
+  testCategory        String
+  clinicalNotes       String?
+  priority            String   @default("NORMAL")
+  status              String   @default("ORDERED") // ORDERED, SAMPLE_COLLECTED, PROCESSING, REPORT_PREPARED, SUBMITTED_TO_CONSULTANT, REVISION_REQUESTED, ACCEPTED
+  totalFee            Decimal  @default(0.0)
+  requestDate         DateTime @default(now())
+  currentVersion      Int?     @default(1)
+  resultsV1           String?
+  resultsV2           String?
+  revisionReason      String?
+  revisionComment     String?
+  attachedPdfUrl      String?
+  attachedPdfName     String?
+  attachedImageBase64 String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   items     LabOrderItem[]
   reports   LabReport[]
@@ -185,6 +227,7 @@ model LabOrder {
 
 model LabOrderItem {
   id         String   @id @default(uuid())
+  legacyId   String?
   labOrderId String
   labOrder   LabOrder @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
   testName   String
@@ -194,6 +237,7 @@ model LabOrderItem {
 
 model LabReport {
   id             String    @id @default(uuid())
+  legacyId       String?   @unique
   labOrderId     String    @unique
   labOrder       LabOrder  @relation(fields: [labOrderId], references: [id])
   currentVersion Int       @default(1)
@@ -209,6 +253,7 @@ model LabReport {
 
 model LabReportVersion {
   id               String    @id @default(uuid())
+  legacyId         String?
   labReportId      String
   labReport        LabReport @relation(fields: [labReportId], references: [id], onDelete: Cascade)
   versionNumber    Int
@@ -221,6 +266,7 @@ model LabReportVersion {
 
 model LabRevisionRequest {
   id            String     @id @default(uuid())
+  legacyId      String?
   labOrderId    String
   labOrder      LabOrder   @relation(fields: [labOrderId], references: [id])
   labReportId   String
@@ -236,22 +282,31 @@ model LabRevisionRequest {
 }
 
 model UltrasoundOrder {
-  id                 String   @id @default(uuid())
-  orderNumber        String   @unique
-  patientId          String
-  patient            Patient  @relation(fields: [patientId], references: [id])
-  visitId            String
-  visit              PatientVisit @relation(fields: [visitId], references: [id])
-  consultantId       String
-  consultant         Consultant @relation(fields: [consultantId], references: [id])
-  requestedExam      String
-  clinicalIndication String?
-  priority           String   @default("NORMAL")
-  status             String   @default("ORDERED") // ORDERED, PROCESSING, SUBMITTED_TO_CONSULTANT, REVISION_REQUESTED, ACCEPTED
-  totalFee           Decimal  @default(0.0)
-  requestDate        DateTime @default(now())
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  legacyId            String?  @unique
+  orderNumber         String   @unique
+  patientId           String
+  patient             Patient  @relation(fields: [patientId], references: [id])
+  patientName         String?
+  mrNumber            String?
+  visitId             String
+  visit               PatientVisit @relation(fields: [visitId], references: [id])
+  consultantId        String
+  consultant          Consultant @relation(fields: [consultantId], references: [id])
+  consultantName      String?
+  requestedExam       String
+  clinicalIndication  String?
+  priority            String   @default("NORMAL")
+  status              String   @default("ORDERED") // ORDERED, PROCESSING, SUBMITTED_TO_CONSULTANT, REVISION_REQUESTED, ACCEPTED
+  totalFee            Decimal  @default(0.0)
+  requestDate         DateTime @default(now())
+  attachedFileName    String?
+  attachedPdfUrl      String?
+  attachedImageUrl    String?
+  attachedImageBase64 String?
+  findingsV1          String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   reports   UltrasoundReport[]
   revisions UltrasoundRevisionRequest[]
@@ -259,6 +314,7 @@ model UltrasoundOrder {
 
 model UltrasoundReport {
   id                String          @id @default(uuid())
+  legacyId          String?         @unique
   ultrasoundOrderId String          @unique
   ultrasoundOrder   UltrasoundOrder @relation(fields: [ultrasoundOrderId], references: [id])
   currentVersion    Int             @default(1)
@@ -274,6 +330,7 @@ model UltrasoundReport {
 
 model UltrasoundReportVersion {
   id                 String           @id @default(uuid())
+  legacyId           String?
   ultrasoundReportId String
   ultrasoundReport   UltrasoundReport @relation(fields: [ultrasoundReportId], references: [id], onDelete: Cascade)
   versionNumber      Int
@@ -288,6 +345,7 @@ model UltrasoundReportVersion {
 
 model UltrasoundRevisionRequest {
   id                 String           @id @default(uuid())
+  legacyId           String?
   ultrasoundOrderId  String
   ultrasoundOrder    UltrasoundOrder  @relation(fields: [ultrasoundOrderId], references: [id])
   ultrasoundReportId String
@@ -303,24 +361,35 @@ model UltrasoundRevisionRequest {
 }
 
 model Medicine {
-  id                String   @id @default(uuid())
-  genericName       String
+  id                String    @id @default(uuid())
+  legacyId          String?   @unique
+  genericName       String?
   brandName         String
-  category          String
-  manufacturer      String
-  purchasePrice     Decimal  @default(0.0)
-  salePrice         Decimal  @default(0.0)
-  availableQuantity Int      @default(0)
-  reorderLevel      Int      @default(10)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  category          String    @default("General")
+  dosageForm        String    @default("Tablet")
+  strength          String?
+  manufacturer      String?
+  batchNumber       String?
+  expiryDate        DateTime?
+  unitPrice         Decimal   @default(0.0)
+  purchasePrice     Decimal   @default(0.0)
+  salePrice         Decimal   @default(0.0)
+  currentStock      Int       @default(0)
+  availableQuantity Int       @default(0)
+  minimumStock      Int       @default(10)
+  reorderLevel      Int       @default(10)
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   batches   MedicineBatch[]
   movements InventoryTransaction[]
+  dispensingItems PharmacyDispensingItem[]
 }
 
 model MedicineBatch {
   id           String   @id @default(uuid())
+  legacyId     String?
   medicineId   String
   medicine     Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
   batchNumber  String
@@ -331,55 +400,68 @@ model MedicineBatch {
   supplier     String?
   createdAt    DateTime @default(now())
 
-  dispensingItems PharmacyDispensingItem[]
-  movements       InventoryTransaction[]
+  movements InventoryTransaction[]
 }
 
 model InventoryTransaction {
-  id           String         @id @default(uuid())
-  medicineId   String
-  medicine     Medicine       @relation(fields: [medicineId], references: [id])
-  batchId      String?
-  batch        MedicineBatch? @relation(fields: [batchId], references: [id])
-  movementType String         // PURCHASE, DISPENSE, RETURN, ADJUSTMENT, DAMAGED, EXPIRED
-  quantity     Int
-  unitCost     Decimal        @default(0.0)
-  referenceNo  String?
-  notes        String?
-  performedBy  String
-  createdAt    DateTime       @default(now())
+  id              String         @id @default(uuid())
+  legacyId        String?
+  medicineId      String
+  medicine        Medicine       @relation(fields: [medicineId], references: [id])
+  batchId         String?
+  batch           MedicineBatch? @relation(fields: [batchId], references: [id])
+  transactionType String         @default("PURCHASE") // PURCHASE, DISPENSE, RETURN, ADJUSTMENT, DAMAGED, EXPIRED
+  quantity        Int
+  quantityBefore  Int            @default(0)
+  quantityAfter   Int            @default(0)
+  unitCost        Decimal        @default(0.0)
+  totalCost       Decimal        @default(0.0)
+  supplierName    String?
+  reason          String?
+  batchNumber     String?
+  referenceNo     String?
+  performedById   String?
+  performedBy     User?          @relation(fields: [performedById], references: [id])
+  createdAt       DateTime       @default(now())
 }
 
 model PharmacyDispensing {
-  id             String   @id @default(uuid())
-  dispensingNo   String   @unique
-  prescriptionId String
-  prescription   Prescription @relation(fields: [prescriptionId], references: [id])
-  patientName    String
-  totalAmount    Decimal  @default(0.0)
-  pharmacistId   String
-  dispensedAt    DateTime @default(now())
-  createdAt      DateTime @default(now())
+  id              String        @id @default(uuid())
+  legacyId        String?       @unique
+  prescriptionId  String?
+  prescription    Prescription? @relation(fields: [prescriptionId], references: [id])
+  patientId       String?
+  patient         Patient?      @relation(fields: [patientId], references: [id])
+  patientName     String
+  dispensedById   String?
+  dispensedBy     User?         @relation("DispensingUser", fields: [dispensedById], references: [id])
+  dispensedByName String        @default("Pharmacist")
+  totalAmount     Decimal       @default(0.0)
+  paymentStatus   String        @default("PAID")
+  notes           String?
+  dispensedAt     DateTime      @default(now())
+  createdAt       DateTime      @default(now())
 
   items PharmacyDispensingItem[]
 }
 
 model PharmacyDispensingItem {
   id                   String             @id @default(uuid())
+  legacyId             String?
   pharmacyDispensingId String
   pharmacyDispensing   PharmacyDispensing @relation(fields: [pharmacyDispensingId], references: [id], onDelete: Cascade)
-  prescriptionItemId   String
-  prescriptionItem     PrescriptionItem   @relation(fields: [prescriptionItemId], references: [id])
-  batchId              String
-  batch                MedicineBatch      @relation(fields: [batchId], references: [id])
+  medicineId           String?
+  medicine             Medicine?          @relation(fields: [medicineId], references: [id])
   medicineName         String
   quantity             Int
   unitPrice            Decimal            @default(0.0)
   totalPrice           Decimal            @default(0.0)
+  batchNumber          String?
 }
 
 model OTRecord {
   id              String       @id @default(uuid())
+  legacyId        String?      @unique
   otNumber        String       @unique
   patientId       String
   patient         Patient      @relation(fields: [patientId], references: [id])
@@ -406,6 +488,7 @@ model OTRecord {
 
 model GyneRecord {
   id                 String       @id @default(uuid())
+  legacyId           String?      @unique
   gyneNumber         String       @unique
   patientId          String
   patient            Patient      @relation(fields: [patientId], references: [id])
@@ -428,6 +511,7 @@ model GyneRecord {
 
 model CashTransaction {
   id                String        @id @default(uuid())
+  legacyId          String?       @unique
   transactionNumber String        @unique
   transactionType   String        // INCOME, EXPENSE, REFUND, ADJUSTMENT, REVERSAL
   category          String
@@ -449,6 +533,7 @@ model CashTransaction {
 
 model DailyCashClosing {
   id              String   @id @default(uuid())
+  legacyId        String?  @unique
   closingDate     DateTime @unique
   openingBalance  Decimal  @default(0.0)
   totalIncome     Decimal  @default(0.0)
@@ -463,20 +548,29 @@ model DailyCashClosing {
 }
 
 model AuditLog {
-  id         String   @id @default(uuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  action     String
-  entityName String
-  entityId   String
-  ipAddress  String?
-  oldValues  String?  // JSON string
-  newValues  String?  // JSON string
-  createdAt  DateTime @default(now())
+  id           String   @id @default(uuid())
+  legacyId     String?  @unique
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id])
+  action       String
+  entityType   String   @default("UNKNOWN")
+  entityId     String?
+  userEmail    String?
+  userName     String?
+  userRole     String?
+  ipAddress    String?
+  userAgent    String?
+  oldValues    String?  // JSON string
+  newValues    String?  // JSON string
+  description  String?
+  status       String   @default("SUCCESS")
+  errorMessage String?
+  createdAt    DateTime @default(now())
 }
 
 model SystemHealthRecord {
   id               String   @id @default(uuid())
+  legacyId         String?
   dbStatus         String   @default("HEALTHY")
   dbConnectionPool Int      @default(10)
   pitrStatus       String   @default("ACTIVE")
@@ -485,3 +579,175 @@ model SystemHealthRecord {
   storageUsageMb   Float    @default(256.4)
   createdAt        DateTime @default(now())
 }
+
+model ReferralForm {
+  id                    String   @id @default(uuid())
+  formNumber            String   @unique
+  patientId             String
+  patient               Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  visitId               String?
+  visit                 PatientVisit? @relation(fields: [visitId], references: [id])
+  formDate              DateTime @default(now())
+  dateOfAdmission       DateTime?
+  presentingComplaint   String?
+  provisionalDiagnosis  String?
+  briefHistoryExamination String?
+  investigationsResults String?
+  diagnosis             String?
+  procedureDone         String?
+  conditionAtRefer      String? // Satisfactory, Fair, Poor
+  referredHospitalName  String?
+  reasonForReferral     String?
+  doctorName            String?
+  signDate              DateTime?
+  signTime              String?
+  status                String   @default("FINALIZED")
+  createdById           String?
+  createdBy             User?    @relation(fields: [createdById], references: [id])
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  medicines ReferralFormMedicine[]
+}
+
+model ReferralFormMedicine {
+  id             String       @id @default(uuid())
+  referralFormId String
+  referralForm   ReferralForm @relation(fields: [referralFormId], references: [id], onDelete: Cascade)
+  srNo           Int
+  medicine       String
+  dose           String?
+  route          String?
+  frequency      String?
+  timing         String?
+  duration       String?
+}
+
+model DischargeForm {
+  id                       String   @id @default(uuid())
+  formNumber               String   @unique
+  patientId                String
+  patient                  Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  visitId                  String?
+  visit                    PatientVisit? @relation(fields: [visitId], references: [id])
+  formDate                 DateTime @default(now())
+  dateOfAdmission          DateTime?
+  presentingComplaint      String?
+  briefHistoryExamination  String?
+  diagnosticInvestigations String?
+  diagnosis                String?
+  procedureDone            String?
+  outcome                  String?
+  dischargeAdvisedByDoctor Boolean  @default(true)
+  isLAMA                   Boolean  @default(false)
+  dischargeDate            DateTime?
+  dischargeCondition       String? // Satisfactory, Fair, Poor
+  followUpDate             DateTime?
+  followUpDepartment       String?
+  dietaryInstructions      String?
+  doctorName               String?
+  signDate                 DateTime?
+  signTime                 String?
+  status                   String   @default("FINALIZED")
+  createdById              String?
+  createdBy                User?    @relation(fields: [createdById], references: [id])
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  medicines DischargeFormMedicine[]
+}
+
+model DischargeFormMedicine {
+  id              String        @id @default(uuid())
+  dischargeFormId String
+  dischargeForm   DischargeForm @relation(fields: [dischargeFormId], references: [id], onDelete: Cascade)
+  srNo            Int
+  medicine        String
+  dose            String?
+  route           String?
+  frequency       String?
+  timing          String?
+  duration        String?
+}
+
+model AdmissionForm {
+  id                   String   @id @default(uuid())
+  formNumber           String   @unique
+  patientId            String
+  patient              Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  visitId              String?
+  visit                PatientVisit? @relation(fields: [visitId], references: [id])
+  phcRegNumber         String?
+  dateOfAdmission      DateTime @default(now())
+  timeOfAdmission      String?
+  maritalStatus        String?
+  cnic                 String?
+  provisionalDiagnosis String?
+  finalDiagnosis       String?
+  admittedThrough      String? // OPD, Emergency
+  opdErMrNo            String?
+  dateOfDischargeRefer DateTime?
+  timeOfDischargeRefer String?
+  consentName          String?
+  consentRelation      String?
+  consentSigned        Boolean  @default(true)
+  status               String   @default("FINALIZED")
+  createdById          String?
+  createdBy            User?    @relation(fields: [createdById], references: [id])
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model OperationNote {
+  id                    String   @id @default(uuid())
+  formNumber            String   @unique
+  patientId             String
+  patient               Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  visitId               String?
+  visit                 PatientVisit? @relation(fields: [visitId], references: [id])
+  operationDate         DateTime @default(now())
+  operationTime         String?
+  surgeonName           String
+  assistantTeamName     String?
+  anesthetistName       String?
+  anesthesiaType        String?
+  incision              String?
+  procedureDetails      String?
+  findings              String?
+  drain                 String?
+  specimenRemoved       String?
+  histopathology        String?
+  bloodLoss             String?
+  transfusion           String?
+  uneventfulDevelopment String?
+  conditionAtEnd        String?
+  postOpOrders          String?
+  signDate              DateTime?
+  signTime              String?
+  status                String   @default("FINALIZED")
+  createdById           String?
+  createdBy             User?    @relation(fields: [createdById], references: [id])
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model DoctorNote {
+  id          String   @id @default(uuid())
+  formNumber  String   @unique
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  visitId     String?
+  visit       PatientVisit? @relation(fields: [visitId], references: [id])
+  noteDate    DateTime @default(now())
+  noteTime    String?
+  notes       String
+  doctorName  String
+  signDate    DateTime?
+  signTime    String?
+  status      String   @default("FINALIZED")
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+

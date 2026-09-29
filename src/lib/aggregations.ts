@@ -1,8 +1,4 @@
-import { connectToProductionDatabase } from "./mongodb";
-import { CashTransactionModel } from "../models/CashTransaction";
-import { MedicineModel } from "../models/Medicine";
-import { LabOrderModel } from "../models/LabOrder";
-import { UltrasoundOrderModel } from "../models/UltrasoundOrder";
+import { prisma } from "./prisma";
 
 export interface IDailyCashSummaryResult {
   totalIncome: number;
@@ -16,42 +12,33 @@ export interface IDepartmentRevenue {
 }
 
 /**
- * Calculates total income, total expense, and net cash for a given date using MongoDB Aggregation Pipeline.
- * Replaces SQL: SELECT transactionType, SUM(amount) FROM CashTransaction WHERE transactionDate BETWEEN ... GROUP BY transactionType
+ * Calculates total income, total expense, and net cash for a given date using Prisma / PostgreSQL.
  */
 export async function calculateDailyCashSummary(date: Date): Promise<IDailyCashSummaryResult> {
-  await connectToProductionDatabase();
-
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
   const endOfDay = new Date(date);
   endOfDay.setHours(23, 59, 59, 999);
 
-  const result = await CashTransactionModel.aggregate([
-    {
-      $match: {
-        transactionDate: { $gte: startOfDay, $lte: endOfDay },
-      },
+  const incomeGroup = await prisma.cashTransaction.aggregate({
+    where: {
+      transactionType: "INCOME",
+      transactionDate: { gte: startOfDay, lte: endOfDay },
     },
-    {
-      $group: {
-        _id: "$transactionType",
-        totalAmount: { $sum: "$amount" },
-      },
+    _sum: { amount: true },
+  });
+
+  const expenseGroup = await prisma.cashTransaction.aggregate({
+    where: {
+      transactionType: "EXPENSE",
+      transactionDate: { gte: startOfDay, lte: endOfDay },
     },
-  ]);
+    _sum: { amount: true },
+  });
 
-  let totalIncome = 0;
-  let totalExpense = 0;
-
-  for (const row of result) {
-    if (row._id === "INCOME") {
-      totalIncome = row.totalAmount;
-    } else if (row._id === "EXPENSE") {
-      totalExpense = row.totalAmount;
-    }
-  }
+  const totalIncome = Number(incomeGroup._sum.amount || 0);
+  const totalExpense = Number(expenseGroup._sum.amount || 0);
 
   return {
     totalIncome,
@@ -61,69 +48,59 @@ export async function calculateDailyCashSummary(date: Date): Promise<IDailyCashS
 }
 
 /**
- * Returns revenue aggregated by hospital department.
- * Replaces SQL: SELECT department, SUM(amount) FROM CashTransaction WHERE transactionType = 'INCOME' GROUP BY department
+ * Returns revenue aggregated by hospital department using Prisma / PostgreSQL.
  */
 export async function calculateDepartmentRevenue(startDate: Date, endDate: Date): Promise<IDepartmentRevenue[]> {
-  await connectToProductionDatabase();
-
-  const results = await CashTransactionModel.aggregate([
-    {
-      $match: {
-        transactionType: "INCOME",
-        transactionDate: { $gte: startDate, $lte: endDate },
+  const results = await prisma.cashTransaction.groupBy({
+    by: ["department"],
+    where: {
+      transactionType: "INCOME",
+      transactionDate: { gte: startDate, lte: endDate },
+    },
+    _sum: {
+      amount: true,
+    },
+    orderBy: {
+      _sum: {
+        amount: "desc",
       },
     },
-    {
-      $group: {
-        _id: "$department",
-        totalAmount: { $sum: "$amount" },
-      },
-    },
-    {
-      $sort: { totalAmount: -1 },
-    },
-  ]);
+  });
 
   return results.map((row) => ({
-    department: row._id || "General",
-    totalAmount: row.totalAmount,
+    department: row.department || "General",
+    totalAmount: Number(row._sum.amount || 0),
   }));
 }
 
 /**
- * Queries medicine items whose stock is at or below reorder level.
- * Replaces SQL: SELECT * FROM Medicine WHERE availableQuantity <= reorderLevel
+ * Queries medicine items whose stock is at or below minimum stock level.
  */
 export async function getLowStockMedicines() {
-  await connectToProductionDatabase();
-
-  return MedicineModel.find({
-    $expr: { $lte: ["$availableQuantity", "$reorderLevel"] },
-  })
-    .sort({ availableQuantity: 1 })
-    .exec();
+  const medicines = await prisma.medicine.findMany({
+    orderBy: { availableQuantity: "asc" },
+  });
+  return medicines.filter((m) => m.availableQuantity <= m.reorderLevel);
 }
 
 /**
  * Aggregates pending lab and ultrasound orders for dashboard widgets.
  */
 export async function getPendingDiagnosticsCount() {
-  await connectToProductionDatabase();
+  const labCounts = await prisma.labOrder.groupBy({
+    by: ["status"],
+    where: { status: { not: "ACCEPTED" } },
+    _count: { status: true },
+  });
 
-  const [labCounts, usCounts] = await Promise.all([
-    LabOrderModel.aggregate([
-      { $match: { status: { $ne: "ACCEPTED" } } },
-      { $group: { _id: "$status", count: { $sum: 1 } } },
-    ]),
-    UltrasoundOrderModel.aggregate([
-      { $match: { status: { $ne: "ACCEPTED" } } },
-      { $group: { _id: "$status", count: { $sum: 1 } } },
-    ]),
-  ]);
+  const usCounts = await prisma.ultrasoundOrder.groupBy({
+    by: ["status"],
+    where: { status: { not: "ACCEPTED" } },
+    _count: { status: true },
+  });
 
   return {
-    labCounts,
-    usCounts,
+    labCounts: labCounts.map((l) => ({ _id: l.status, count: l._count.status })),
+    usCounts: usCounts.map((u) => ({ _id: u.status, count: u._count.status })),
   };
 }
