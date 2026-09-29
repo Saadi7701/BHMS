@@ -1,29 +1,28 @@
 import { NextResponse } from "next/server";
-import { connectToProductionDatabase } from "@/lib/mongodb";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const mongooseInstance = await connectToProductionDatabase();
-    const isDbConnected = mongooseInstance.connection.readyState === 1;
+    await prisma.$queryRaw`SELECT 1`;
 
     return NextResponse.json(
       {
-        status: isDbConnected ? "ok" : "degraded",
+        status: "ok",
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || "development",
         database: {
-          status: isDbConnected ? "connected" : "disconnected",
-          provider: "MongoDB Production Cluster",
+          status: "connected",
+          provider: "PostgreSQL (Supabase)",
         },
       },
-      { status: isDbConnected ? 200 : 503 }
+      { status: 200 }
     );
   } catch (error: any) {
     return NextResponse.json(
       {
         status: "error",
         timestamp: new Date().toISOString(),
-        error: "Database health check failed",
+        error: "Database health check failed: " + error.message,
       },
       { status: 500 }
     );
@@ -33,3 +32,4 @@ export async function GET() {
 export async function HEAD() {
   return new Response(null, { status: 200 });
 }
+

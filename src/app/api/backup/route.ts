@@ -1,34 +1,24 @@
 import { NextResponse } from "next/server";
-import { connectToProductionDatabase } from "@/lib/mongodb";
-import { PatientModel } from "@/models/Patient";
-import { PatientVisitModel } from "@/models/PatientVisit";
-import { LabOrderModel } from "@/models/LabOrder";
-import { UltrasoundOrderModel } from "@/models/UltrasoundOrder";
-import { PrescriptionModel } from "@/models/Prescription";
-import { MedicineModel } from "@/models/Medicine";
-import { CashTransactionModel } from "@/models/CashTransaction";
-import { UserModel } from "@/models/User";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    await connectToProductionDatabase();
-
     const [patients, visits, labOrders, ultrasoundOrders, prescriptions, medicines, cashTransactions, users] =
       await Promise.all([
-        PatientModel.find().lean().exec(),
-        PatientVisitModel.find().lean().exec(),
-        LabOrderModel.find().lean().exec(),
-        UltrasoundOrderModel.find().lean().exec(),
-        PrescriptionModel.find().lean().exec(),
-        MedicineModel.find().lean().exec(),
-        CashTransactionModel.find().lean().exec(),
-        UserModel.find({}, { passwordHash: 0 }).lean().exec(),
+        prisma.patient.findMany(),
+        prisma.patientVisit.findMany(),
+        prisma.labOrder.findMany(),
+        prisma.ultrasoundOrder.findMany(),
+        prisma.prescription.findMany({ include: { items: true } }),
+        prisma.medicine.findMany(),
+        prisma.cashTransaction.findMany(),
+        prisma.user.findMany({ select: { id: true, username: true, email: true, fullName: true, role: true, isActive: true } }),
       ]);
 
     const backupPayload = {
       exportTimestamp: new Date().toISOString(),
       hospital: "BILAL HOSPITAL MANAGEMENT SYSTEM",
-      database: "bilal_hospital_prod",
+      database: "PostgreSQL (Supabase)",
       collections: {
         patientsCount: patients.length,
         visitsCount: visits.length,
@@ -61,8 +51,9 @@ export async function GET() {
   } catch (error: any) {
     console.error("[Database Backup Dump Error]:", error);
     return NextResponse.json(
-      { error: "Failed to generate database backup dump." },
+      { error: "Failed to generate database backup dump: " + error.message },
       { status: 500 }
     );
   }
 }
+

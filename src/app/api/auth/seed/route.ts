@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { connectToProductionDatabase } from "@/lib/mongodb";
-import { UserModel } from "@/models/User";
+import { userRepository } from "@/repositories/UserRepository";
 import bcrypt from "bcryptjs";
 
 const DEFAULT_ACCOUNTS = [
@@ -65,15 +64,14 @@ export async function POST() {
 
 async function seedDefaultAccounts() {
   try {
-    await connectToProductionDatabase();
     const created: string[] = [];
     const updated: string[] = [];
 
     for (const acc of DEFAULT_ACCOUNTS) {
-      const existing = await UserModel.findOne({ username: acc.username.toLowerCase() });
+      const existing = await userRepository.findByUsername(acc.username);
       if (!existing) {
         const passwordHash = await bcrypt.hash(acc.plainPassword, 10);
-        await UserModel.create({
+        await userRepository.createUser({
           username: acc.username.toLowerCase(),
           email: acc.email.toLowerCase(),
           passwordHash,
@@ -102,3 +100,4 @@ async function seedDefaultAccounts() {
     );
   }
 }
+

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { connectToProductionDatabase } from "@/lib/mongodb";
 import { userRepository } from "@/repositories/UserRepository";
 import bcrypt from "bcryptjs";
 
@@ -20,8 +19,6 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
-    await connectToProductionDatabase();
 
     let targetUser = null;
     if (userId) {
